@@ -1,0 +1,359 @@
+import { clinicaState } from './state.js';
+import { showToast, escapeHTML } from './Ferramentas.js';
+import { atualizarAgenda } from './agenda.js';
+
+import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from './firebase.js';
+
+let pacienteAtivoId = null;
+
+export function initPacientes() {
+    const modalCadastro = document.getElementById('modal-cadastro');
+    const tipoCadastro = document.getElementById('tipo-cadastro');
+    
+    document.getElementById('btn-novo-paciente').addEventListener('click', () => abrirModalCadastro('paciente'));
+    document.getElementById('btn-novo-profissional').addEventListener('click', () => abrirModalCadastro('profissional'));
+    document.getElementById('btn-close-cadastro').addEventListener('click', () => modalCadastro.classList.remove('active'));
+
+    function abrirModalCadastro(tipo) {
+        document.getElementById('form-cadastro').reset();
+        tipoCadastro.value = tipo;
+        const isPac = tipo === 'paciente';
+        
+        document.querySelectorAll('.paciente-only').forEach(el => el.style.display = isPac ? 'grid' : 'none');
+        document.querySelectorAll('.profissional-only').forEach(el => el.style.display = !isPac ? 'grid' : 'none');
+        
+        if(isPac) {
+            document.getElementById('step-verificacao-cpf').style.display = 'block';
+            document.getElementById('step-dados-cadastrais').style.display = 'none';
+        } else {
+            document.getElementById('step-verificacao-cpf').style.display = 'none';
+            document.getElementById('cad-cpf').removeAttribute('readonly');
+            document.getElementById('cad-cpf').style.backgroundColor = '#fbfbfc';
+            document.getElementById('step-dados-cadastrais').style.display = 'grid';
+        }
+        modalCadastro.classList.add('active');
+    }
+
+    tipoCadastro.addEventListener('change', (e) => abrirModalCadastro(e.target.value));
+
+    document.getElementById('btn-verificar-cpf').addEventListener('click', () => {
+        const cpfDigitado = document.getElementById('cad-cpf-check').value.trim();
+        if(!cpfDigitado) return showToast('Por favor, digite o CPF para verificação.', 'warning');
+        
+        const pacienteExistente = clinicaState.pacientes.find(p => p.cpf === cpfDigitado);
+        if(pacienteExistente) {
+            showToast(`Paciente já cadastrado: ${pacienteExistente.nome}. Abrindo prontuário...`, 'warning');
+            modalCadastro.classList.remove('active');
+            abrirProntuario(pacienteExistente.id);
+        } else {
+            document.getElementById('cad-cpf').value = cpfDigitado;
+            document.getElementById('step-verificacao-cpf').style.display = 'none';
+            document.getElementById('step-dados-cadastrais').style.display = 'grid';
+            showToast('CPF liberado para novo cadastro.', 'success');
+        }
+    });
+
+    document.getElementById('form-cadastro').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const tipo = tipoCadastro.value;
+        const btnSalvar = e.target.querySelector('button[type="submit"]');
+        const textoOriginal = btnSalvar.innerHTML;
+        
+        // Feedback visual enquanto salva na nuvem
+        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando na nuvem...';
+        btnSalvar.disabled = true;
+
+        const baseData = {
+            nome: document.getElementById('cad-nome').value,
+            cpf: document.getElementById('cad-cpf').value,
+            rg: document.getElementById('cad-rg').value,
+            nascimento: document.getElementById('cad-nascimento').value,
+            mae: document.getElementById('cad-mae').value,
+            telefone: document.getElementById('cad-tel').value,
+            email: document.getElementById('cad-email').value,
+            dataCadastro: new Date().toISOString() // Boa prática: registrar quando foi criado
+        };
+
+        try {
+            if (tipo === 'paciente') {
+                // Salvando na coleção 'pacientes' do Firestore
+                await addDoc(collection(db, "pacientes"), {
+                    ...baseData,
+                    sangue: document.getElementById('cad-sangue').value,
+                    alergias: document.getElementById('cad-alergias').value,
+                    convenio: document.getElementById('cad-convenio').value || 'Particular',
+                    carteirinha: document.getElementById('cad-carteirinha').value,
+                    emergencia: document.getElementById('cad-emergencia').value,
+                    responsavel: document.getElementById('cad-responsavel').value,
+                    evolucoes: [] // Array vazio para receber o prontuário no futuro
+                });
+                showToast('Paciente salvo no banco de dados com sucesso!', 'success');
+            } else {
+                // Salvando na coleção 'profissionais'
+                await addDoc(collection(db, "profissionais"), {
+                    ...baseData,
+                    conselho: document.getElementById('cad-conselho').value,
+                    registro: document.getElementById('cad-num-registro').value,
+                    especialidade: document.getElementById('cad-especialidade').value,
+                    rqe: document.getElementById('cad-rqe').value,
+                    vinculo: document.getElementById('cad-vinculo').value
+                });
+                showToast('Profissional salvo no banco de dados!', 'success');
+            }
+
+            modalCadastro.classList.remove('active');
+            // Atualize as tabelas lendo a nuvem novamente após salvar um novo cadastro!
+            await carregarPacientes(); 
+            await carregarProfissionais();
+            e.target.reset();
+            
+            // Nota: Por enquanto não vamos atualizar a tabela na tela, 
+            // primeiro vamos confirmar se o dado chegou no Firebase.
+
+        } catch (error) {
+            console.error("Erro ao salvar no Firestore: ", error);
+            showToast('Erro de conexão ao salvar os dados.', 'error');
+        } finally {
+            // Restaura o botão
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+        }
+    });
+
+    // Eventos do PEP
+    document.getElementById('btn-buscar-paciente').addEventListener('click', () => {
+        const query = document.getElementById('search-paciente').value.toLowerCase();
+        const paciente = clinicaState.pacientes.find(p => p.nome.toLowerCase().includes(query) || p.cpf === query);
+        if (paciente) {
+            abrirProntuario(paciente.id);
+            showToast('Prontuário encontrado.', 'success');
+        } else {
+            showToast('Paciente não localizado.', 'error');
+        }
+    });
+
+    document.getElementById('btn-fechar-pep').addEventListener('click', () => {
+        document.getElementById('prontuario-ativo').style.display = 'none';
+        pacienteAtivoId = null;
+        renderizarResumoPacienteAtivo();
+    });
+
+    document.getElementById('form-evolucao').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if(!pacienteAtivoId) return;
+        
+        // Pega o paciente garantindo que o ID é string
+        const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
+        
+        const btnSalvar = e.target.querySelector('button[type="submit"]');
+        const textoOriginal = btnSalvar.innerHTML;
+        
+        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Assinando...';
+        btnSalvar.disabled = true;
+
+        const texto = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
+    **Exame Físico:** ${document.getElementById('pep-exame-fisico').value}
+    **Diagnóstico:** ${document.getElementById('pep-diagnostico').value || 'N/A'}
+    **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim();
+
+        const novaEvolucao = {
+            data: new Date().toLocaleString('pt-BR'),
+            texto: texto,
+            assinatura: 'Assinado por Dr. Administrador (ICP-Brasil)'
+        };
+
+        // Garante que o array existe antes de dar o push
+        if (!paciente.evolucoes) paciente.evolucoes = [];
+        paciente.evolucoes.push(novaEvolucao);
+
+        try {
+            // Atualiza apenas o campo de evoluções desse paciente específico na nuvem
+            const pacienteRef = doc(db, "pacientes", paciente.id);
+            await updateDoc(pacienteRef, {
+                evolucoes: paciente.evolucoes
+            });
+
+            renderizarEvolucoes(paciente);
+            e.target.reset();
+            showToast('Evolução salva no Prontuário com sucesso!');
+        } catch (error) {
+            console.error("Erro ao salvar evolução: ", error);
+            showToast('Erro de conexão ao salvar ficha.', 'error');
+            // Reverte a ação na tela se a internet falhar
+            paciente.evolucoes.pop(); 
+        } finally {
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+        }
+    });
+
+    // Delegação de eventos para abrir o PEP a partir da tabela
+    const patientListBody = document.getElementById('patient-table-body-list');
+    if (patientListBody) {
+        patientListBody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-abrir-prontuario');
+            // Removemos o 'Number()' para que ele aceite as letras do Firebase
+            if (btn) abrirProntuario(btn.getAttribute('data-id'));
+        });
+    }
+
+    // Evento para excluir profissional
+    const profListBody = document.getElementById('prof-table-body-list');
+    if (profListBody) {
+        profListBody.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-excluir-prof');
+            if (btn) {
+                const idProfissional = btn.getAttribute('data-id');
+                
+                // Pede confirmação antes de apagar dados do banco
+                if(confirm('Tem certeza que deseja inativar/remover este profissional do sistema?')) {
+                    try {
+                        await deleteDoc(doc(db, "profissionais", idProfissional));
+                        showToast('Profissional removido com sucesso.', 'success');
+                        await carregarProfissionais(); // Recarrega a tabela sem o excluído
+                    } catch(error) {
+                        console.error("Erro ao excluir", error);
+                        showToast('Falha ao remover profissional.', 'error');
+                    }
+                }
+            }
+        });
+    }
+
+}
+
+export function abrirProntuario(idPaciente) {
+    const paciente = clinicaState.pacientes.find(p => String(p.id) === String(idPaciente));
+    
+    if (paciente) {
+        document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+        document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('pacientes').classList.add('active');
+        document.querySelector('[data-target="pacientes"]').classList.add('active');
+        
+        pacienteAtivoId = paciente.id;
+        
+        renderizarEvolucoes(paciente);
+        renderizarResumoPacienteAtivo(); // É esta função que desenha a tabela do paciente
+        
+        document.getElementById('prontuario-ativo').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function renderizarEvolucoes(paciente) {
+    const container = document.getElementById('pep-timeline');
+    // Aplicando a proteção contra XSS que conversamos
+    container.innerHTML = paciente.evolucoes.slice().reverse().map(evo => `
+        <div class="timeline-item">
+            <div class="timeline-meta">
+                <span><i class="fa-regular fa-calendar"></i> ${evo.data}</span>
+                <span style="color:#198754"><i class="fa-solid fa-lock"></i> ${evo.assinatura}</span>
+            </div>
+            <div class="timeline-content">${escapeHTML(evo.texto).replace(/\n/g, '<br>')}</div>
+        </div>
+    `).join('') || '<p>Sem registros anteriores.</p>';
+}
+
+export function renderizarResumoPacienteAtivo() {
+    const container = document.getElementById('patient-table-body-prontuario');
+    if (!container) return;
+    if (!pacienteAtivoId) {
+        container.innerHTML = '';
+        return;
+    }
+    const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
+    if (!paciente) return;
+    
+    container.innerHTML = `
+        <tr>
+            <td><strong>${paciente.nome}</strong></td>
+            <td>${paciente.cpf}</td>
+            <td>${paciente.convenio}</td>
+            <td style="color:red">${paciente.alergias || '-'}</td>
+            <td>
+                <span class="badge success"><i class="fa-solid fa-user-check"></i> Em Atendimento</span>
+            </td>
+        </tr>`;
+}
+
+export function atualizarTabelaPacientes() {
+    const patientListBody = document.getElementById('patient-table-body-list');
+    if (patientListBody) {
+        patientListBody.innerHTML = clinicaState.pacientes.map(p => 
+            `<tr>
+                <td><strong>${p.nome}</strong></td>
+                <td>${p.cpf}</td>
+                <td>${p.convenio}</td>
+                <td style="color:red">${p.alergias || '-'}</td>
+                <td>
+                    <button class="btn-action btn-abrir-prontuario" data-id="${p.id}">
+                        <i class="fa-regular fa-folder-open"></i> Acessar Ficha
+                    </button>
+                </td>
+            </tr>`
+        ).join('');
+    }
+    renderizarResumoPacienteAtivo();
+}
+
+
+export async function carregarPacientes() {
+    try {
+        const querySnapshot = await getDocs(collection(db, "pacientes"));
+        clinicaState.pacientes = []; 
+        
+        querySnapshot.forEach((doc) => {
+            clinicaState.pacientes.push({
+                ...doc.data(), // Despeja os dados do banco PRIMEIRO
+                id: String(doc.id) // Força o ID real do Firebase por ÚLTIMO e como Texto
+            });
+        });
+        
+        atualizarTabelaPacientes();
+        
+    } catch (error) {
+        console.error("Erro ao buscar pacientes: ", error);
+        showToast('Erro ao carregar lista de pacientes.', 'error');
+    }
+}
+
+export async function carregarProfissionais() {
+    try {
+        const querySnapshot = await getDocs(collection(db, "profissionais"));
+        clinicaState.profissionais = []; 
+        
+        querySnapshot.forEach((doc) => {
+            clinicaState.profissionais.push({
+                ...doc.data(),
+                id: String(doc.id)
+            });
+        });
+        
+        atualizarTabelaProfissionais();
+        atualizarAgenda(); // Garante que a agenda recarregue com os médicos corretos
+        
+    } catch (error) {
+        console.error("Erro ao buscar profissionais: ", error);
+        showToast('Erro ao carregar equipe.', 'error');
+    }
+}
+
+export function atualizarTabelaProfissionais() {
+    const profListBody = document.getElementById('prof-table-body-list');
+    if (profListBody) {
+        profListBody.innerHTML = clinicaState.profissionais.map(p => 
+            `<tr>
+                <td><strong>${p.nome}</strong></td>
+                <td>${p.especialidade}</td>
+                <td>${p.conselho} ${p.registro}</td>
+                <td>
+                    <button class="btn-action btn-excluir-prof" data-id="${p.id}" style="color: #dc3545; border-color: #dc3545;">
+                        <i class="fa-solid fa-trash"></i> Excluir
+                    </button>
+                </td>
+            </tr>`
+        ).join('');
+    }
+}

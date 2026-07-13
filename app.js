@@ -25,8 +25,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
+// 1.5 MÁSCARAS DE INPUT
+// ==========================================
+    const maskOptions = {
+        cpf: { mask: '000.000.000-00' },
+        telefone: { mask: '(00) 00000-0000' },
+        data: { mask: Date, pattern: 'Y-`m-`d' }, // Padrão ISO para inputs type="date"
+        moeda: { mask: Number, scale: 2, thousandsSeparator: '.', padFractionalZeros: true, normalizeZeros: true, radix: ',' }
+    };
+
+    // Aplicando aos elementos (verifique se os IDs correspondem)
+    IMask(document.getElementById('cad-cpf-check'), maskOptions.cpf);
+    IMask(document.getElementById('cad-cpf'), maskOptions.cpf);
+    IMask(document.getElementById('cad-tel'), maskOptions.telefone);
+    IMask(document.getElementById('fin-valor'), maskOptions.moeda);
+
+    // ==========================================
     // 2. NAVEGAÇÃO SPA E UTILITÁRIOS
     // ==========================================
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const mobileBackdrop = document.getElementById('mobile-backdrop');
+
+    function fecharMenuMobile() {
+        if (sidebar) sidebar.classList.remove('active');
+        if (mobileBackdrop) mobileBackdrop.classList.remove('active');
+    }
+
+    if (mobileMenuToggle) {
+        mobileMenuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            mobileBackdrop.classList.toggle('active');
+        });
+    }
+
+    if (mobileBackdrop) {
+        mobileBackdrop.addEventListener('click', fecharMenuMobile);
+    }
+
     document.querySelectorAll('.menu-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
@@ -35,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.currentTarget.getAttribute('data-target');
             document.getElementById(target).classList.add('active');
             e.currentTarget.classList.add('active');
+            fecharMenuMobile();
             
             if (target === 'estoque') verificarAlertasEstoque();
             if (target === 'dashboard') calcularDRE();
@@ -221,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span><i class="fa-regular fa-calendar"></i> ${evo.data}</span>
                     <span style="color:#198754"><i class="fa-solid fa-lock"></i> ${evo.assinatura}</span>
                 </div>
-                <div class="timeline-content">${evo.texto.replace(/\n/g, '<br>')}</div>
+                <div class="timeline-content">${escapeHTML(evo.texto).replace(/\n/g, '<br>')}</div>
             </div>
         `).join('') || '<p>Sem registros anteriores.</p>';
     }
@@ -507,6 +544,19 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>`;
         }).join('');
     }
+
+
+    function escapeHTML(str) {
+    return str.replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag)
+    );
+}
 
     // Inicialização ao carregar a página
     calcularDRE();

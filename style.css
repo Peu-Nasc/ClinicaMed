@@ -43,6 +43,31 @@ body {
     flex-direction: column;
     box-shadow: var(--shadow-soft);
     z-index: 10;
+    transition: transform 0.25s ease;
+}
+
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1200;
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: var(--shadow-soft);
+}
+
+.mobile-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 28, 36, 0.45);
+    z-index: 1000;
 }
 
 .logo-area {
@@ -622,4 +647,290 @@ body {
     color: var(--text-main);
     line-height: 1.5;
     white-space: pre-wrap; /* Mantém as quebras de linha do textarea */
+}
+
+@media (max-width: 1024px) {
+    .card-grid {
+        flex-wrap: wrap;
+    }
+
+    .card {
+        min-width: calc(50% - 10px);
+    }
+
+    .top-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .top-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        overflow: auto;
+    }
+
+    .app-container {
+        min-height: 100vh;
+    }
+
+    .mobile-menu-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        transform: translateX(-100%);
+        width: 280px;
+        z-index: 1100;
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .mobile-backdrop.active {
+        display: block;
+    }
+
+    .main-content {
+        width: 100%;
+    }
+
+    .content-sections {
+        padding: 20px 16px 30px;
+    }
+
+    .section-header,
+    .paciente-info-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .top-bar {
+        padding: 20px 16px;
+    }
+
+    .top-actions,
+    .agenda-controls,
+    .search-bar {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .card-grid {
+        flex-direction: column;
+    }
+
+    .card {
+        min-width: 100%;
+    }
+
+    .form-grid,
+    .pep-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .full-width {
+        grid-column: auto;
+    }
+
+    .modal-content {
+        margin: 16px;
+        max-height: calc(100vh - 32px);
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+
+    .agenda-controls input,
+    .agenda-controls select,
+    .agenda-controls button,
+    .search-bar input,
+    .search-bar button {
+        width: 100%;
+    }
+
+    .calendar-container {
+        flex-direction: column;
+    }
+
+    .time-column {
+        width: 100%;
+        display: flex;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .time-slot-header,
+    .time-slot {
+        min-width: 80px;
+        height: 60px;
+    }
+
+    .agenda-professionals {
+        min-width: 100%;
+        flex-direction: column;
+    }
+
+    .professional-column {
+        min-width: 100%;
+    }
+}
+
+/* =========================================================
+   10. TELA DE LOGIN
+   ========================================================= */
+.login-overlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, var(--primary-color) 0%, #0a3554 100%);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 20px;
+}
+
+.login-overlay.active {
+    display: flex;
+}
+
+.login-container {
+    background: var(--surface-color);
+    width: 100%;
+    max-width: 900px;
+    min-height: 500px;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    display: flex;
+    overflow: hidden;
+    animation: fadeInModal 0.5s ease;
+}
+
+.login-brand {
+    flex: 1;
+    background: var(--primary-light);
+    color: white;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Efeito de círculo decorativo no fundo da logo */
+.login-brand::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+}
+
+.brand-logo i {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+
+.login-brand h2 {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+}
+
+.security-badge {
+    margin-top: 30px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.login-form-area {
+    flex: 1;
+    padding: 50px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: var(--surface-color);
+}
+
+.login-form-area h3 {
+    font-size: 1.8rem;
+    color: var(--primary-color);
+    margin-bottom: 5px;
+}
+
+.login-subtitle {
+    color: var(--text-light);
+    margin-bottom: 10px;
+}
+
+.login-btn {
+    padding: 14px;
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.login-footer {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.whatsapp-btn {
+    width: 100%;
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    border-color: #25D366;
+    color: #25D366;
+}
+
+.whatsapp-btn:hover {
+    background: #25D366;
+    color: white;
+}
+
+/* Responsividade do Login */
+@media (max-width: 768px) {
+    .login-container {
+        flex-direction: column;
+    }
+    .login-brand {
+        padding: 30px;
+        min-height: 200px;
+    }
+    .login-form-area {
+        padding: 30px 20px;
+    }
 }
