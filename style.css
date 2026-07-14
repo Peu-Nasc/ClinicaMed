@@ -647,6 +647,116 @@ body {
     color: var(--text-main);
     line-height: 1.5;
     white-space: pre-wrap; /* Mantém as quebras de linha do textarea */
+    
+}
+
+
+/* =========================================================
+   REFINAMENTO PREMIUM DO PRONTUÁRIO (PEP)
+   ========================================================= */
+.pep-header-premium {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to right, #ffffff, #f8fbff);
+    padding: 20px 25px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 25px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+}
+
+.pep-profile-info {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.pep-avatar {
+    width: 55px;
+    height: 55px;
+    background: var(--primary-light);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 6px rgba(50, 130, 184, 0.2);
+}
+
+.pep-profile-info h3 {
+    margin: 0 0 4px 0;
+    color: var(--primary-color);
+    font-size: 1.4rem;
+}
+
+.pep-profile-info p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+.pep-badges {
+    display: flex;
+    gap: 12px;
+}
+
+.pep-badge {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pep-badge.neutral { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.pep-badge.danger { background: #fff0f0; color: #dc3545; border: 1px solid #ffcdd2; }
+
+/* Melhorando as caixas de digitação e histórico */
+.pep-nova-evolucao, .pep-historico {
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+}
+
+.pep-nova-evolucao h4, .pep-historico h4 {
+    border-bottom: 2px solid var(--secondary-color);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+
+/* Refinamento da Linha do Tempo (Evoluções) */
+.timeline-item {
+    background: transparent !important;
+    border-left: 4px solid var(--primary-light) !important;
+    padding-left: 15px !important;
+    margin-bottom: 25px;
+    box-shadow: none !important;
+}
+
+.timeline-content {
+    background-color: #f8fbff;
+    padding: 15px 20px;
+    border-radius: 8px;
+    border: 1px solid #e8eef7;
+    margin-top: 12px;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    line-height: 1.6;
+}
+
+.timeline-content strong {
+    color: var(--primary-color);
+    font-size: 0.90rem;
+    text-transform: uppercase;
 }
 
 @media (max-width: 1024px) {

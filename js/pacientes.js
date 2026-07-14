@@ -158,6 +158,10 @@ export function initPacientes() {
 
     document.getElementById('btn-fechar-pep').addEventListener('click', () => {
         document.getElementById('prontuario-ativo').style.display = 'none';
+
+        const listaContainer = document.getElementById('lista-pacientes-container');
+        if (listaContainer) listaContainer.style.display = 'block';
+
         pacienteAtivoId = null;
         renderizarResumoPacienteAtivo();
     });
@@ -378,6 +382,9 @@ export function abrirProntuario(idPaciente) {
         }
         // =========================
 
+        const listaContainer = document.getElementById('lista-pacientes-container');
+        if (listaContainer) listaContainer.style.display = 'none';
+
         document.getElementById('prontuario-ativo').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -385,38 +392,56 @@ export function abrirProntuario(idPaciente) {
 
 function renderizarEvolucoes(paciente) {
     const container = document.getElementById('pep-timeline');
-    // Aplicando a proteção contra XSS que conversamos
-    container.innerHTML = paciente.evolucoes.slice().reverse().map(evo => `
+    
+    container.innerHTML = paciente.evolucoes.slice().reverse().map(evo => {
+        // Mágica Front-end: Troca os **texto** por <strong>texto</strong>
+        let textoFormatado = escapeHTML(evo.texto)
+            .replace(/\n/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            
+        return `
         <div class="timeline-item">
             <div class="timeline-meta">
                 <span><i class="fa-regular fa-calendar"></i> ${evo.data}</span>
                 <span style="color:#198754"><i class="fa-solid fa-lock"></i> ${evo.assinatura}</span>
             </div>
-            <div class="timeline-content">${escapeHTML(evo.texto).replace(/\n/g, '<br>')}</div>
+            <div class="timeline-content">${textoFormatado}</div>
         </div>
-    `).join('') || '<p>Sem registros anteriores.</p>';
+    `}).join('') || '<p>Sem registros anteriores.</p>';
 }
 
 export function renderizarResumoPacienteAtivo() {
-    const container = document.getElementById('patient-table-body-prontuario');
-    if (!container) return;
-    if (!pacienteAtivoId) {
-        container.innerHTML = '';
-        return;
-    }
+    if (!pacienteAtivoId) return;
+    
     const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
     if (!paciente) return;
     
-    container.innerHTML = `
-        <tr>
-            <td><strong>${paciente.nome}</strong></td>
-            <td>${paciente.cpf}</td>
-            <td>${paciente.convenio}</td>
-            <td style="color:red">${paciente.alergias || '-'}</td>
-            <td>
-                <span class="badge success"><i class="fa-solid fa-user-check"></i> Em Atendimento</span>
-            </td>
-        </tr>`;
+    // Preenche o novo Cabeçalho Premium
+    const elNome = document.getElementById('pep-nome-paciente');
+    const elDados = document.getElementById('pep-dados-basicos');
+    const elConvenio = document.getElementById('pep-convenio');
+    const elAlergias = document.getElementById('pep-alergias');
+
+    if (elNome) elNome.textContent = paciente.nome;
+    
+    // Formata os dados básicos
+    const dataNasc = paciente.nascimento ? paciente.nascimento.split('-').reverse().join('/') : 'Não inf.';
+    if (elDados) elDados.textContent = `CPF: ${paciente.cpf} | Nasc: ${dataNasc} | Tel: ${paciente.telefone || 'Não inf.'}`;
+    
+    // Adiciona ícones e cores nas badges
+    if (elConvenio) {
+        elConvenio.innerHTML = `<i class="fa-solid fa-address-card"></i> ${paciente.convenio || 'Particular'}`;
+    }
+    
+    if (elAlergias) {
+        if (paciente.alergias) {
+            elAlergias.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Alergias: ${paciente.alergias}`;
+            elAlergias.className = 'pep-badge danger';
+        } else {
+            elAlergias.innerHTML = `<i class="fa-solid fa-check"></i> Sem alergias`;
+            elAlergias.className = 'pep-badge neutral';
+        }
+    }
 }
 
 export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
