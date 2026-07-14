@@ -1,13 +1,18 @@
 import { clinicaState } from './state.js';
 import { showToast } from './Ferramentas.js';
+import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from './firebase.js';
 
-import { db, collection, addDoc, getDocs } from './firebase.js';
+let itemEmEdicaoId = null;
 
 export function initEstoque() {
     const modalEstoque = document.getElementById('modal-estoque');
     
     document.getElementById('btn-abrir-modal-estoque').addEventListener('click', () => modalEstoque.classList.add('active'));
-    document.getElementById('btn-close-estoque').addEventListener('click', () => modalEstoque.classList.remove('active'));
+    document.getElementById('btn-close-estoque').addEventListener('click', () => {
+        modalEstoque.classList.remove('active');
+        itemEmEdicaoId = null; // Desliga a edição ao cancelar
+        document.getElementById('form-estoque').reset();
+    });
     
     document.getElementById('form-estoque').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -18,7 +23,7 @@ export function initEstoque() {
         btnSalvar.disabled = true;
 
         try {
-            await addDoc(collection(db, "estoque"), {
+            const dadosParaSalvar = {
                 codigo: document.getElementById('est-codigo').value,
                 nome: document.getElementById('est-nome').value,
                 apresentacao: document.getElementById('est-apresentacao').value,
@@ -28,13 +33,20 @@ export function initEstoque() {
                 qtd: parseInt(document.getElementById('est-qtd').value),
                 min: parseInt(document.getElementById('est-min').value),
                 controle: document.getElementById('est-controle').value
-            });
+            };
+
+            if (itemEmEdicaoId) {
+                await updateDoc(doc(db, "estoque", itemEmEdicaoId), dadosParaSalvar);
+                showToast('Lote atualizado com sucesso.', 'success');
+            } else {
+                await addDoc(collection(db, "estoque"), dadosParaSalvar);
+                showToast('Item registrado no estoque com sucesso.', 'success');
+            }
             
             modalEstoque.classList.remove('active');
             e.target.reset();
-            showToast('Item registrado no estoque com sucesso.', 'success');
+            itemEmEdicaoId = null; // Desliga a chave
             
-            // Recarrega os dados do Firebase para atualizar a tabela
             await carregarEstoque(); 
             
         } catch (error) {
@@ -67,7 +79,16 @@ export function atualizarTabelaEstoque() {
             <td><strong>${i.nome}</strong><br><small>${i.apresentacao} | ${i.controle}</small></td>
             <td>L: ${i.lote}<br><small>Val: ${i.validade}</small></td>
             <td><span class="badge ${badgeClass}">${i.qtd} un</span></td>
-            <td><button class="btn-action">Baixar Cód.Barras</button></td>
+            <td>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-action btn-editar-est" data-id="${i.id}" style="color: var(--primary-light); border-color: var(--primary-light);" title="Editar Lote">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="btn-action btn-excluir-est" data-id="${i.id}" style="color: #dc3545; border-color: #dc3545;" title="Excluir Item">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </td>
         </tr>`;
     }).join('');
 }
@@ -92,3 +113,47 @@ export async function carregarEstoque() {
         showToast('Erro ao carregar o inventário.', 'error');
     }
 }
+
+// === DELEGAÇÃO DE EVENTOS: EDITAR E EXCLUIR NO ESTOQUE ===
+    const stockTableBody = document.getElementById('stock-table-body');
+    if (stockTableBody) {
+        stockTableBody.addEventListener('click', async (e) => {
+            const btnEditar = e.target.closest('.btn-editar-est');
+            const btnExcluir = e.target.closest('.btn-excluir-est');
+
+            if (btnExcluir) {
+                const idEst = btnExcluir.getAttribute('data-id');
+                if (confirm('Atenção: Deseja realmente excluir este lote do inventário?')) {
+                    try {
+                        await deleteDoc(doc(db, "estoque", idEst));
+                        showToast('Item excluído com sucesso.', 'success');
+                        await carregarEstoque();
+                    } catch (error) {
+                        console.error("Erro ao excluir: ", error);
+                        showToast('Falha ao excluir item.', 'error');
+                    }
+                }
+            }
+
+            if (btnEditar) {
+                const idEst = btnEditar.getAttribute('data-id');
+                const item = clinicaState.estoque.find(i => String(i.id) === String(idEst));
+                
+                if (item) {
+                    itemEmEdicaoId = item.id; // Liga a chave
+                    
+                    document.getElementById('est-codigo').value = item.codigo;
+                    document.getElementById('est-nome').value = item.nome;
+                    document.getElementById('est-apresentacao').value = item.apresentacao;
+                    document.getElementById('est-anvisa').value = item.anvisa;
+                    document.getElementById('est-lote').value = item.lote;
+                    document.getElementById('est-validade').value = item.validade;
+                    document.getElementById('est-qtd').value = item.qtd;
+                    document.getElementById('est-min').value = item.min;
+                    document.getElementById('est-controle').value = item.controle;
+                    
+                    modalEstoque.classList.add('active');
+                }
+            }
+        });
+    }

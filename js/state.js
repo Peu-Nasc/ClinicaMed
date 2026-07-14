@@ -1,5 +1,15 @@
-// Exportamos o estado para que outros arquivos possam acessá-lo
+// Exportamos o estado para que outros arquivos possam acessar
 export const clinicaState = {
+    // Nova área: Dados da Sessão Atual
+    sessao: {
+        uid: null,
+        email: null,
+        nome: null,
+        perfil: null,      // 'admin', 'medico' ou 'recepcao'
+        clinicaId: null    // Identificador único da clínica pagante
+    },
+    
+    // Áreas de dados gerais
     pacientes: [],
     profissionais: [],
     estoque: [],
