@@ -160,7 +160,7 @@ function aplicarPermissoesDeTela() {
     if(btnEst) btnEst.style.display = 'flex';
 
     // Regras de Bloqueio
-    if (perfil === 'medico') {
+    if (perfil === 'Doutor(a)') {
         // Médico não vê finanças, nem estoque, nem dashboard geral
         if(btnDash) btnDash.style.display = 'none';
         if(btnFin) btnFin.style.display = 'none';

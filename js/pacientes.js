@@ -369,7 +369,7 @@ export function abrirProntuario(idPaciente) {
         const areaHistorico = document.querySelector('.pep-historico'); // Área onde lista as evoluções
         const formEvolucao = document.querySelector('.pep-nova-evolucao'); // Área de digitar evolução
         
-        if (clinicaState.sessao.perfil !== 'medico') {
+        if (clinicaState.sessao.perfil !== 'Doutor(a)') {
             if(areaHistorico) areaHistorico.style.display = 'none';
             if(formEvolucao) formEvolucao.style.display = 'none';
         } else {

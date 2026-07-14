@@ -5,7 +5,7 @@ export const clinicaState = {
         uid: null,
         email: null,
         nome: null,
-        perfil: null,      // 'admin', 'medico' ou 'recepcao'
+        perfil: null,      // 'admin', 'Doutor(a)' ou 'recepcao'
         clinicaId: null    // Identificador único da clínica pagante
     },
     
