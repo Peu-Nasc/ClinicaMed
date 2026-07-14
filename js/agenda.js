@@ -1,7 +1,7 @@
 import { clinicaState } from './state.js';
 import { showToast } from './Ferramentas.js';
 
-import { db, collection, addDoc, getDocs, doc, deleteDoc } from './firebase.js';
+import { db, collection, addDoc, getDocs, doc, deleteDoc, query, where } from './firebase.js';
 
 const appointmentTimes = ['08:00', '09:00', '10:00', '14:00', '15:00', '16:00'];
 
@@ -38,7 +38,8 @@ export function initAgenda() {
                 pacNome: paciente ? paciente.nome : 'Paciente',
                 profId: String(profId),
                 data: document.getElementById('agenda-data').value,
-                hora: document.getElementById('agenda-hora').value
+                hora: document.getElementById('agenda-hora').value,
+                clinicaId: clinicaState.sessao.clinicaId
             });
             
             modalAgenda.classList.remove('active');
@@ -169,9 +170,15 @@ export function atualizarAgenda() {
 
 export async function carregarAgendamentos() {
     try {
-        const querySnapshot = await getDocs(collection(db, "agendamentos"));
-        clinicaState.agenda.agendamentos = []; 
+        // Busca apenas os agendamentos que pertencem à clínica do usuário logado
+        const q = query(
+            collection(db, "agendamentos"), 
+            where("clinicaId", "==", clinicaState.sessao.clinicaId)
+        );
+        const querySnapshot = await getDocs(q);
         
+        clinicaState.agenda.agendamentos = [];
+                  
         querySnapshot.forEach((doc) => {
             clinicaState.agenda.agendamentos.push({
                 ...doc.data(),
@@ -180,7 +187,7 @@ export async function carregarAgendamentos() {
         });
         
         atualizarAgenda(); // Desenha a grade de horários
-        
+             
     } catch (error) {
         console.error("Erro ao buscar agenda: ", error);
         showToast('Erro ao carregar agendamentos.', 'error');

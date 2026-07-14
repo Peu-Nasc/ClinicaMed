@@ -2,7 +2,7 @@ import { clinicaState } from './state.js';
 import { showToast, escapeHTML } from './Ferramentas.js';
 import { atualizarAgenda } from './agenda.js';
 
-import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from './firebase.js';
+import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let pacienteAtivoId = null;
 let pacienteEmEdicaoId = null; // Variável nova! Indica quem estamos editando
@@ -87,7 +87,9 @@ export function initPacientes() {
             mae: document.getElementById('cad-mae').value,
             telefone: document.getElementById('cad-tel').value,
             email: document.getElementById('cad-email').value,
-            dataCadastro: new Date().toISOString() // Boa prática: registrar quando foi criado
+            dataCadastro: new Date().toISOString(),
+            // CARIMBO DE SEGURANÇA:
+            clinicaId: clinicaState.sessao.clinicaId 
         };
 
         try {
@@ -360,8 +362,22 @@ export function abrirProntuario(idPaciente) {
         }
         
         renderizarEvolucoes(paciente);
-        renderizarResumoPacienteAtivo(); // É esta função que desenha a tabela do paciente
+        renderizarResumoPacienteAtivo(); 
         
+        // === TRAVA VISUAL LGPD ===
+        // Oculta a área de histórico e digitação para quem não for médico
+        const areaHistorico = document.querySelector('.pep-historico'); // Área onde lista as evoluções
+        const formEvolucao = document.querySelector('.pep-nova-evolucao'); // Área de digitar evolução
+        
+        if (clinicaState.sessao.perfil !== 'medico') {
+            if(areaHistorico) areaHistorico.style.display = 'none';
+            if(formEvolucao) formEvolucao.style.display = 'none';
+        } else {
+            if(areaHistorico) areaHistorico.style.display = 'block';
+            if(formEvolucao) formEvolucao.style.display = 'block';
+        }
+        // =========================
+
         document.getElementById('prontuario-ativo').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -435,29 +451,45 @@ export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
 
 export async function carregarPacientes() {
     try {
-        const querySnapshot = await getDocs(collection(db, "pacientes"));
-        clinicaState.pacientes = []; 
-        
+        // O Raio-X: Mostra no console qual clínica ele está usando como filtro
+        console.log("🔍 Buscando pacientes para a clínica:", clinicaState.sessao.clinicaId);
+
+        const q = query(
+            collection(db, "pacientes"),
+            where("clinicaId", "==", clinicaState.sessao.clinicaId)
+        );
+        const querySnapshot = await getDocs(q);
+
+        // Mostra no console quantos pacientes ele conseguiu achar lá no Firebase
+        console.log(`📦 Encontrados: ${querySnapshot.size} pacientes no banco.`);
+
+        clinicaState.pacientes = [];
         querySnapshot.forEach((doc) => {
             clinicaState.pacientes.push({
-                ...doc.data(), // Despeja os dados do banco PRIMEIRO
-                id: String(doc.id) // Força o ID real do Firebase por ÚLTIMO e como Texto
+                ...doc.data(),
+                id: String(doc.id)
             });
         });
-        
+
         atualizarTabelaPacientes();
-        
+
     } catch (error) {
-        console.error("Erro ao buscar pacientes: ", error);
+        console.error("❌ Erro grave ao buscar pacientes: ", error);
         showToast('Erro ao carregar lista de pacientes.', 'error');
     }
 }
 
 export async function carregarProfissionais() {
     try {
-        const querySnapshot = await getDocs(collection(db, "profissionais"));
-        clinicaState.profissionais = []; 
+        console.log("🔍 Buscando profissionais para a clínica:", clinicaState.sessao.clinicaId);
         
+        const q = query(
+            collection(db, "profissionais"), 
+            where("clinicaId", "==", clinicaState.sessao.clinicaId)
+        );
+        const querySnapshot = await getDocs(q);
+        
+        clinicaState.profissionais = [];
         querySnapshot.forEach((doc) => {
             clinicaState.profissionais.push({
                 ...doc.data(),
@@ -466,11 +498,9 @@ export async function carregarProfissionais() {
         });
         
         atualizarTabelaProfissionais();
-        atualizarAgenda(); // Garante que a agenda recarregue com os médicos corretos
-        
     } catch (error) {
-        console.error("Erro ao buscar profissionais: ", error);
-        showToast('Erro ao carregar equipe.', 'error');
+        console.error("❌ Erro ao buscar profissionais: ", error);
+        showToast('Erro ao carregar lista de profissionais.', 'error');
     }
 }
 

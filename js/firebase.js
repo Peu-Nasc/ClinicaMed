@@ -2,6 +2,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { clinicaState } from './state.js';
+
 
 // A sua configuração real e exclusiva do banco de dados
 const firebaseConfig = {

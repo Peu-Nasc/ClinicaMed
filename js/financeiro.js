@@ -1,6 +1,6 @@
 import { clinicaState } from './state.js';
 import { formatCurrency, showToast } from './Ferramentas.js';
-import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from './firebase.js';
+import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let lancamentoEmEdicaoId = null; 
 
@@ -38,7 +38,8 @@ export function initFinanceiro() {
                 status: document.getElementById('fin-status').value,
                 competencia: document.getElementById('fin-competencia').value,
                 caixa: document.getElementById('fin-caixa').value,
-                valor: parseFloat(valorInput)
+                valor: parseFloat(valorInput),
+                clinicaId: clinicaState.sessao.clinicaId
             };
 
             if (lancamentoEmEdicaoId) {
@@ -173,9 +174,15 @@ export function atualizarTabelaFinanceiro() {
 
 export async function carregarFinanceiro() {
     try {
-        const querySnapshot = await getDocs(collection(db, "financeiro"));
-        clinicaState.financeiro.lancamentos = []; 
+        // Busca apenas os lançamentos financeiros da clínica do usuário logado
+        const q = query(
+            collection(db, "financeiro"), 
+            where("clinicaId", "==", clinicaState.sessao.clinicaId)
+        );
+        const querySnapshot = await getDocs(q);
         
+        clinicaState.financeiro.lancamentos = [];
+                  
         querySnapshot.forEach((doc) => {
             clinicaState.financeiro.lancamentos.push({
                 ...doc.data(),
@@ -185,7 +192,7 @@ export async function carregarFinanceiro() {
         
         atualizarTabelaFinanceiro();
         calcularDRE(); // Atualiza os painéis da Dashboard Analítica!
-        
+             
     } catch (error) {
         console.error("Erro ao buscar dados financeiros: ", error);
         showToast('Erro ao carregar o livro caixa.', 'error');

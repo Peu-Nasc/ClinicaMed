@@ -1,6 +1,6 @@
 import { clinicaState } from './state.js';
 import { showToast } from './Ferramentas.js';
-import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from './firebase.js';
+import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let itemEmEdicaoId = null;
 
@@ -32,7 +32,8 @@ export function initEstoque() {
                 validade: document.getElementById('est-validade').value,
                 qtd: parseInt(document.getElementById('est-qtd').value),
                 min: parseInt(document.getElementById('est-min').value),
-                controle: document.getElementById('est-controle').value
+                controle: document.getElementById('est-controle').value,
+                clinicaId: clinicaState.sessao.clinicaId
             };
 
             if (itemEmEdicaoId) {
@@ -95,9 +96,15 @@ export function atualizarTabelaEstoque() {
 
 export async function carregarEstoque() {
     try {
-        const querySnapshot = await getDocs(collection(db, "estoque"));
-        clinicaState.estoque = []; 
+        // Busca apenas os itens de estoque vinculados à clínica do usuário logado
+        const q = query(
+            collection(db, "estoque"), 
+            where("clinicaId", "==", clinicaState.sessao.clinicaId)
+        );
+        const querySnapshot = await getDocs(q);
         
+        clinicaState.estoque = [];
+                  
         querySnapshot.forEach((doc) => {
             clinicaState.estoque.push({
                 ...doc.data(),
@@ -107,7 +114,7 @@ export async function carregarEstoque() {
         
         atualizarTabelaEstoque();
         verificarAlertasEstoque(); // Dispara os avisos de validade e quantidade mínima
-        
+             
     } catch (error) {
         console.error("Erro ao buscar dados do estoque: ", error);
         showToast('Erro ao carregar o inventário.', 'error');

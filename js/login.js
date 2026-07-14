@@ -1,48 +1,51 @@
 import { showToast } from './Ferramentas.js';
-import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut, db, collection, query, where, getDocs } from './firebase.js';
+import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut, db, collection, query, where, getDocs, addDoc } from './firebase.js';
 import { clinicaState } from './state.js'; // Adicione esta linha!
 import { carregarPacientes, carregarProfissionais } from './pacientes.js';
 import { carregarAgendamentos } from './agenda.js';
 import { carregarFinanceiro } from './financeiro.js';
 import { carregarEstoque } from './estoque.js';
 
+
 export function initAuth() {
     const formLogin = document.getElementById('form-login');
     const loginScreen = document.getElementById('login-screen');
     const btnSolicitarAcesso = document.getElementById('btn-solicitar-acesso');
 
-    onAuthStateChanged(auth, (user) => {
+    // 1. Observador de Sessão ÚNICO E INTELIGENTE
+    onAuthStateChanged(auth, async (user) => {
         if (user) {
-            loginScreen.classList.remove('active');
-            loginScreen.style.display = 'none';
+            // Vai no banco e busca o perfil e a clínica de quem está logado
+            const q = query(collection(db, "usuarios"), where("email", "==", user.email));
+            const querySnapshot = await getDocs(q);
             
-            // Lógica dinâmica para o nome do usuário
-            const userNameEl = document.getElementById('profile-user-name');
-            if (userNameEl && user.email) {
-                // Pega a parte do e-mail antes do @ (ex: dr.joao@clinica.com vira "dr.joao")
-                let nome = user.email.split('@')[0];
-                // Deixa a primeira letra maiúscula
-                nome = nome.charAt(0).toUpperCase() + nome.slice(1);
-                userNameEl.textContent = 'Olá, ' + nome;
-            }
-            
-            carregarPacientes(); 
-            carregarProfissionais();
-            carregarAgendamentos();
-            carregarFinanceiro();
-            carregarEstoque();
-        } else {
-            loginScreen.style.display = 'flex';
-            setTimeout(() => loginScreen.classList.add('active'), 10);
-        }
-    });
+            if (!querySnapshot.empty) {
+                const dadosUsuario = querySnapshot.docs[0].data();
+                
+                // Restaura a memória do sistema ANTES de carregar as tabelas
+                clinicaState.sessao.uid = user.uid;
+                clinicaState.sessao.email = user.email;
+                clinicaState.sessao.nome = dadosUsuario.nome;
+                clinicaState.sessao.perfil = dadosUsuario.perfil;
+                clinicaState.sessao.clinicaId = dadosUsuario.clinicaId;
 
-    // 1. Observador de Sessão: Verifica se o usuário já está logado ao abrir a página
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            // Usuário já tem token válido, removemos a tela de login
-            loginScreen.classList.remove('active');
-            loginScreen.style.display = 'none';
+                // Esconde as telas que não pode ver
+                aplicarPermissoesDeTela(); 
+
+                // AGORA SIM, com a clínica salva na memória, ele carrega os dados certos!
+                await carregarPacientes();
+                await carregarProfissionais();
+                await carregarAgendamentos();
+                await carregarFinanceiro();
+                await carregarEstoque();
+                
+                // Remove a tela de login
+                loginScreen.classList.remove('active');
+                loginScreen.style.display = 'none';
+            } else {
+                // Prevenção de segurança se o usuário foi deletado do banco
+                await signOut(auth);
+            }
         } else {
             // Sem sessão, mostramos a tela de login
             loginScreen.style.display = 'flex';
@@ -71,19 +74,17 @@ export function initAuth() {
             const q = query(collection(db, "usuarios"), where("email", "==", user.email));
             const querySnapshot = await getDocs(q);
             
-            let dadosUsuario = { perfil: 'admin', clinicaId: 'clinica-padrao', nome: user.email.split('@')[0] }; // Fallback de segurança
-
-            if (!querySnapshot.empty) {
-                // Se achou no banco, pega as permissões reais
-                dadosUsuario = querySnapshot.docs[0].data();
-            } else {
-                // Se não achou a pessoa cadastrada, bloqueia o acesso!
-                showToast('Usuário sem permissão vinculada a uma clínica.', 'error');
+            if (querySnapshot.empty) {
+                // Se o e-mail não estiver na tabela de permissões do Firebase, bloqueia na hora!
+                showToast('Acesso negado. Usuário sem perfil configurado no sistema.', 'error');
                 await signOut(auth);
                 btn.innerHTML = textoOriginal;
                 btn.disabled = false;
                 return; 
             }
+
+            // Pega as permissões que você configurou manualmente no Firebase
+            const dadosUsuario = querySnapshot.docs[0].data();
 
             // 3. Salva na memória do sistema
             clinicaState.sessao.uid = user.uid;
