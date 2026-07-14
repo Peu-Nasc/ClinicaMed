@@ -42,5 +42,33 @@ export function initUI() {
         });
     });
 
+
+    // === NAVEGAÇÃO INTERNA DO HUB DE PACIENTES/EQUIPE ===
+    const hubPrincipal = document.getElementById('hub-principal');
+    const areaPacientes = document.getElementById('area-pacientes');
+    const areaProfissionais = document.getElementById('area-profissionais');
+
+    document.getElementById('btn-hub-pacientes')?.addEventListener('click', () => {
+        hubPrincipal.style.display = 'none';
+        areaPacientes.style.display = 'block';
+    });
+
+    document.getElementById('btn-hub-profissionais')?.addEventListener('click', () => {
+        hubPrincipal.style.display = 'none';
+        areaProfissionais.style.display = 'block';
+    });
+
+    // Botões de voltar para a tela inicial dos botões grandes
+    document.querySelectorAll('.btn-voltar-hub').forEach(btn => {
+        btn.addEventListener('click', () => {
+            areaPacientes.style.display = 'none';
+            areaProfissionais.style.display = 'none';
+            hubPrincipal.style.display = 'flex'; // Volta a mostrar os cards
+            
+            // Bônus: Se o prontuário estiver aberto, fecha ele ao voltar
+            const pep = document.getElementById('prontuario-ativo');
+            if (pep) pep.style.display = 'none';
+        });
+    });
     // Lógica para fechar modais no ESC ou clique fora...
 }

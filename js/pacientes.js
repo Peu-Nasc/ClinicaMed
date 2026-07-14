@@ -303,6 +303,42 @@ export function initPacientes() {
         });
     }
 
+    // === MOTOR DE BUSCA DE PACIENTES ===
+    const inputBusca = document.getElementById('search-paciente');
+    const btnBuscar = document.getElementById('btn-buscar-paciente');
+
+    function executarBusca() {
+        if (!inputBusca) return;
+        
+        const termo = inputBusca.value.toLowerCase().trim();
+        
+        // Se o campo estiver vazio, mostra todo mundo
+        if (termo === '') {
+            atualizarTabelaPacientes(clinicaState.pacientes);
+            return;
+        }
+
+        // Filtra a lista comparando o termo com o Nome ou o CPF
+        const pacientesFiltrados = clinicaState.pacientes.filter(p => {
+            const nome = p.nome ? p.nome.toLowerCase() : '';
+            const cpf = p.cpf ? p.cpf : '';
+            return nome.includes(termo) || cpf.includes(termo);
+        });
+
+        // Atualiza a tabela apenas com quem passou no filtro
+        atualizarTabelaPacientes(pacientesFiltrados);
+    }
+
+    // Dispara a busca ao clicar no botão
+    if (btnBuscar) {
+        btnBuscar.addEventListener('click', executarBusca);
+    }
+
+    // Dispara a busca em tempo real enquanto o usuário digita
+    if (inputBusca) {
+        inputBusca.addEventListener('keyup', executarBusca);
+    }
+
 }
 
 export function abrirProntuario(idPaciente) {
@@ -367,10 +403,11 @@ export function renderizarResumoPacienteAtivo() {
         </tr>`;
 }
 
-export function atualizarTabelaPacientes() {
+export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
     const patientListBody = document.getElementById('patient-table-body-list');
     if (patientListBody) {
-        patientListBody.innerHTML = clinicaState.pacientes.map(p => 
+        // AQUI ESTÁ A MÁGICA: Trocamos 'clinicaState.pacientes.map' por 'lista.map'
+        patientListBody.innerHTML = lista.map(p => 
             `<tr>
                 <td><strong>${p.nome}</strong></td>
                 <td>${p.cpf}</td>

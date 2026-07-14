@@ -1,7 +1,8 @@
 import { clinicaState } from './state.js';
 import { formatCurrency, showToast } from './Ferramentas.js';
+import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from './firebase.js';
 
-import { db, collection, addDoc, getDocs } from './firebase.js';
+let lancamentoEmEdicaoId = null; 
 
 export function initFinanceiro() {
     const modalFinanceiro = document.getElementById('modal-financeiro');
@@ -30,7 +31,7 @@ export function initFinanceiro() {
         }
 
         try {
-            await addDoc(collection(db, "financeiro"), {
+            const dadosParaSalvar = {
                 tipo: document.getElementById('fin-tipo').value,
                 vinculo: document.getElementById('fin-vinculo').value,
                 pagamento: document.getElementById('fin-pagamento').value,
@@ -38,13 +39,22 @@ export function initFinanceiro() {
                 competencia: document.getElementById('fin-competencia').value,
                 caixa: document.getElementById('fin-caixa').value,
                 valor: parseFloat(valorInput)
-            });
-            
+            };
+
+            if (lancamentoEmEdicaoId) {
+                // Modo Edição
+                await updateDoc(doc(db, "financeiro", lancamentoEmEdicaoId), dadosParaSalvar);
+                showToast('Lançamento atualizado e DRE recalculada!', 'success');
+            } else {
+                // Modo Novo Cadastro
+                await addDoc(collection(db, "financeiro"), dadosParaSalvar);
+                showToast('Lançamento registrado na nuvem com sucesso.', 'success');
+            }
+
             modalFinanceiro.classList.remove('active');
             e.target.reset();
-            showToast('Lançamento registrado na nuvem com sucesso.', 'success');
+            lancamentoEmEdicaoId = null; // Desliga a chave
             
-            // Recarrega os dados do Firebase para atualizar a tabela e a DRE
             await carregarFinanceiro(); 
             
         } catch (error) {
@@ -54,6 +64,57 @@ export function initFinanceiro() {
             btnSalvar.innerHTML = textoOriginal;
             btnSalvar.disabled = false;
         }
+    });
+
+    // === DELEGAÇÃO DE EVENTOS: EDITAR E EXCLUIR NO CAIXA ===
+    const financeTableBody = document.getElementById('finance-table-body');
+    if (financeTableBody) {
+        financeTableBody.addEventListener('click', async (e) => {
+            const btnEditar = e.target.closest('.btn-editar-fin');
+            const btnExcluir = e.target.closest('.btn-excluir-fin');
+
+            if (btnExcluir) {
+                const idFin = btnExcluir.getAttribute('data-id');
+                if (confirm('Atenção: Deseja realmente excluir este lançamento financeiro? Essa ação recalculará a sua DRE imediatamente.')) {
+                    try {
+                        await deleteDoc(doc(db, "financeiro", idFin));
+                        showToast('Lançamento excluído com sucesso.', 'success');
+                        await carregarFinanceiro();
+                    } catch (error) {
+                        console.error("Erro ao excluir: ", error);
+                        showToast('Falha ao excluir lançamento.', 'error');
+                    }
+                }
+            }
+
+            if (btnEditar) {
+                const idFin = btnEditar.getAttribute('data-id');
+                const lancamento = clinicaState.financeiro.lancamentos.find(l => String(l.id) === String(idFin));
+                
+                if (lancamento) {
+                    lancamentoEmEdicaoId = lancamento.id; // Liga a chave de edição
+                    
+                    document.getElementById('fin-tipo').value = lancamento.tipo;
+                    document.getElementById('fin-vinculo').value = lancamento.vinculo;
+                    document.getElementById('fin-pagamento').value = lancamento.pagamento;
+                    document.getElementById('fin-status').value = lancamento.status;
+                    document.getElementById('fin-competencia').value = lancamento.competencia;
+                    document.getElementById('fin-caixa').value = lancamento.caixa;
+                    
+                    // Converte o valor puro (ex: 1500.5) de volta para o padrão visual do Brasil (ex: 1.500,50) para a máscara não bugar
+                    document.getElementById('fin-valor').value = lancamento.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                    
+                    document.getElementById('modal-financeiro').classList.add('active');
+                }
+            }
+        });
+    }
+
+    // Garante que a chave desliga se cancelar a ação no meio
+    document.getElementById('btn-close-financeiro').addEventListener('click', () => {
+        document.getElementById('modal-financeiro').classList.remove('active');
+        lancamentoEmEdicaoId = null; 
+        document.getElementById('form-financeiro').reset();
     });
 }
 
@@ -96,6 +157,16 @@ export function atualizarTabelaFinanceiro() {
             <td>${l.pagamento}</td>
             <td><span class="badge ${l.status === 'Recebido/Pago' ? 'success' : 'warning'}">${l.status}</span></td>
             <td class="${isEntrada ? 'positivo' : 'negativo'}">${isEntrada ? '+' : '-'} ${formatCurrency(l.valor)}</td>
+            <td>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-action btn-editar-fin" data-id="${l.id}" style="color: var(--primary-light); border-color: var(--primary-light);" title="Editar">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="btn-action btn-excluir-fin" data-id="${l.id}" style="color: #dc3545; border-color: #dc3545;" title="Excluir">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </td>
         </tr>`;
     }).join('');
 }

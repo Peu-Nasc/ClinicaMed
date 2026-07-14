@@ -81,12 +81,8 @@
         <main class="main-content">
             <header class="top-bar">
                 <div>
-                    <h1 id="page-title">Dashboard Analítico</h1>
-                    <p class="top-subtitle">Visão de Competência e Caixa</p>
-                </div>
-                <div class="top-actions">
-                    <button class="btn-secondary" id="btn-novo-profissional"><i class="fa-solid fa-user-doctor"></i> Novo Profissional</button>
-                    <button class="btn-primary" id="btn-novo-paciente"><i class="fa-solid fa-user-plus"></i> Novo Paciente</button>
+                    <h1 id="page-title">GestãoPRO Clínicas</h1>
+                    <p class="top-subtitle" id="page-subtitle">Ambiente Operacional Seguro</p>
                 </div>
             </header>
 
@@ -140,91 +136,101 @@
 
                 <section id="pacientes" class="view-section">
                     <div class="section-header">
-                        <h2>Prontuário Eletrônico do Paciente (PEP)</h2>
-                        <div class="search-bar">
-                            <input id="search-paciente" type="text" class="input-form" placeholder="Buscar por Nome ou CPF...">
-                            <button class="btn-primary" id="btn-buscar-paciente">Buscar</button>
+                        <h2>Central de Pessoas & Prontuários</h2>
+                    </div>
+
+                    <!-- NÍVEL 1: Menu Principal com 2 Botões Grandes -->
+                    <div id="hub-principal" class="card-grid mt-30">
+                        <div class="card card-action" id="btn-hub-pacientes">
+                            <i class="fa-solid fa-users hub-icon"></i>
+                            <h3>Área do Paciente</h3>
+                            <p class="top-subtitle mt-15">Prontuários, Histórico Clínico e Cadastros</p>
+                        </div>
+                        <div class="card card-action" id="btn-hub-profissionais">
+                            <i class="fa-solid fa-user-doctor hub-icon"></i>
+                            <h3>Área da Equipe</h3>
+                            <p class="top-subtitle mt-15">Médicos, Especialidades e Registros (CRM)</p>
                         </div>
                     </div>
 
-                    <div id="prontuario-ativo" class="prontuario-container" style="display: none;">
-                        <div class="paciente-info-header">
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Nome</th>
-                                            <th>CPF</th>
-                                            <th>Convênio</th>
-                                            <th>Alergias</th>
-                                            <th>Ações</th> </tr>
-                                    </thead>
-                                    <tbody id="patient-table-body-prontuario"></tbody>
-                                </table>
-                            </div>
-                            <button class="btn-action" id="btn-fechar-pep"><i class="fa-solid fa-arrow-left"></i> Fechar Prontuário</button>
+                    <!-- NÍVEL 2A: Área de Pacientes (Oculta por padrão) -->
+                    <div id="area-pacientes" style="display: none;">
+                        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                            <button class="btn-secondary btn-voltar-hub"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                            <!-- O Botão de Cadastrar fica em destaque aqui dentro -->
+                            <button class="btn-primary" id="btn-novo-paciente">
+                                <i class="fa-solid fa-user-plus"></i> Cadastrar Paciente
+                            </button>
                         </div>
 
-                        <div class="pep-grid">
-                            <div class="pep-nova-evolucao">
-                                <h4>Registrar Evolução</h4>
-                                <form id="form-evolucao" class="form-grid">
-                                    <div class="form-group full-width">
-                                        <label>Profissional Responsável (Assinatura) *</label>
-                                        <select id="pep-profissional" class="input-premium" required>
-                                            <option value="" disabled selected>Selecione para assinar...</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group full-width">
-                                        <label>Anamnese / Queixa Principal</label>
-                                        <textarea id="pep-anamnese" class="textarea-form" rows="2" required></textarea>
-                                    </div>
-                                    <div class="form-group full-width">
-                                        <label>Exame Físico (Sinais vitais, inspeção)</label>
-                                        <textarea id="pep-exame-fisico" class="textarea-form" rows="2" required></textarea>
-                                    </div>
-                                    <div class="form-group full-width">
-                                        <label>Exames e Diagnóstico (CID)</label>
-                                        <textarea id="pep-diagnostico" class="textarea-form" rows="2"></textarea>
-                                    </div>
-                                    <div class="form-group full-width">
-                                        <label>Conduta e Prescrição (Via de administração, Doses)</label>
-                                        <textarea id="pep-prescricao" class="textarea-form" rows="3" required></textarea>
-                                    </div>
-                                    <div class="form-actions full-width">
-                                        <button type="submit" class="btn-primary"><i class="fa-solid fa-signature"></i> Assinar (ICP-Brasil) e Salvar</button>
-                                    </div>
-                                </form>
+                        <div class="section-header">
+                            <h3>Buscar e Acessar Prontuários</h3>
+                            <div class="search-bar">
+                                <input id="search-paciente" type="text" class="input-form" placeholder="Buscar por Nome ou CPF...">
+                                <button class="btn-primary" id="btn-buscar-paciente">Buscar</button>
                             </div>
-                            <div class="pep-historico">
-                                <h4>Histórico e Documentos Clínicos</h4>
-                                <div class="timeline-container" id="pep-timeline"></div>
+                        </div>
+
+                        <!-- Prontuário Eletrônico (Abre aqui quando clica na ficha) -->
+                        <div id="prontuario-ativo" class="prontuario-container mb-20" style="display: none;">
+                            <div class="paciente-info-header">
+                                <div class="table-container">
+                                    <table class="data-table">
+                                        <thead><tr><th>Nome</th><th>CPF</th><th>Convênio</th><th>Alergias</th><th>Status</th></tr></thead>
+                                        <tbody id="patient-table-body-prontuario"></tbody>
+                                    </table>
+                                </div>
+                                <button class="btn-action" id="btn-fechar-pep"><i class="fa-solid fa-xmark"></i> Fechar PEP</button>
                             </div>
+                            <div class="pep-grid">
+                                <div class="pep-nova-evolucao">
+                                    <h4>Registrar Evolução</h4>
+                                    <form id="form-evolucao" class="form-grid">
+                                        <div class="form-group full-width">
+                                            <label>Profissional Responsável (Assinatura) *</label>
+                                            <select id="pep-profissional" class="input-premium" required>
+                                                <option value="" disabled selected>Selecione para assinar...</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group full-width"><label>Anamnese / Queixa Principal</label><textarea id="pep-anamnese" class="textarea-form" rows="2" required></textarea></div>
+                                        <div class="form-group full-width"><label>Exame Físico</label><textarea id="pep-exame-fisico" class="textarea-form" rows="2" required></textarea></div>
+                                        <div class="form-group full-width"><label>Diagnóstico (CID)</label><textarea id="pep-diagnostico" class="textarea-form" rows="2"></textarea></div>
+                                        <div class="form-group full-width"><label>Conduta e Prescrição</label><textarea id="pep-prescricao" class="textarea-form" rows="3" required></textarea></div>
+                                        <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-signature"></i> Assinar e Salvar</button></div>
+                                    </form>
+                                </div>
+                                <div class="pep-historico">
+                                    <h4>Histórico Clínico</h4>
+                                    <div class="timeline-container" id="pep-timeline"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabela de Pacientes -->
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead><tr><th>Nome</th><th>CPF</th><th>Convênio</th><th>Alergias</th><th>Ações</th></tr></thead>
+                                <tbody id="patient-table-body-list"></tbody>
+                            </table>
                         </div>
                     </div>
 
-                    <div class="section-header mt-30"><h2>Base de Pacientes</h2></div>
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead><tr><th>Nome</th><th>CPF</th><th>Convênio</th><th>Alergias</th></tr></thead>
-                            <tbody id="patient-table-body-list"></tbody>
-                        </table>
-                    </div>
-
-                    <!-- Adicione isso logo após a Base de Pacientes -->
-                    <div class="section-header mt-30"><h2>Base de Profissionais (Equipe)</h2></div>
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>Especialidade</th>
-                                    <th>Conselho / Registro</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="prof-table-body-list"></tbody>
-                        </table>
+                    <!-- NÍVEL 2B: Área de Equipe/Profissionais (Oculta por padrão) -->
+                    <div id="area-profissionais" style="display: none;">
+                        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                            <button class="btn-secondary btn-voltar-hub"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                            <button class="btn-primary" id="btn-novo-profissional">
+                                <i class="fa-solid fa-user-doctor"></i> Cadastrar Profissional
+                            </button>
+                        </div>
+                        
+                        <div class="section-header"><h3>Equipe Médica e Staff</h3></div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead><tr><th>Nome</th><th>Especialidade</th><th>Conselho / Registro</th><th>Ações</th></tr></thead>
+                                <tbody id="prof-table-body-list"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
 
@@ -265,6 +271,7 @@
                                     <th>Forma Pag.</th>
                                     <th>Status</th>
                                     <th>Valor</th>
+                                    <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="finance-table-body"></tbody>
