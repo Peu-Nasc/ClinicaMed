@@ -368,7 +368,7 @@ export function abrirProntuario(idPaciente) {
         // Oculta a área de histórico e digitação para quem não for médico
         const areaHistorico = document.querySelector('.pep-historico'); // Área onde lista as evoluções
         const formEvolucao = document.querySelector('.pep-nova-evolucao'); // Área de digitar evolução
-        
+        fm
         if (clinicaState.sessao.perfil !== 'Doutor(a)') {
             if(areaHistorico) areaHistorico.style.display = 'none';
             if(formEvolucao) formEvolucao.style.display = 'none';
