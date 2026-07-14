@@ -5,6 +5,7 @@ import { atualizarAgenda } from './agenda.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from './firebase.js';
 
 let pacienteAtivoId = null;
+let pacienteEmEdicaoId = null; // Variável nova! Indica quem estamos editando
 
 export function initPacientes() {
     const modalCadastro = document.getElementById('modal-cadastro');
@@ -12,7 +13,9 @@ export function initPacientes() {
     
     document.getElementById('btn-novo-paciente').addEventListener('click', () => abrirModalCadastro('paciente'));
     document.getElementById('btn-novo-profissional').addEventListener('click', () => abrirModalCadastro('profissional'));
-    document.getElementById('btn-close-cadastro').addEventListener('click', () => modalCadastro.classList.remove('active'));
+    document.getElementById('btn-close-cadastro').addEventListener('click', () => { modalCadastro.classList.remove('active');
+        pacienteEmEdicaoId = null; // Garante que a chave desliga se cancelar a ação
+    });
 
     function abrirModalCadastro(tipo) {
         document.getElementById('form-cadastro').reset();
@@ -57,6 +60,18 @@ export function initPacientes() {
         e.preventDefault();
         
         const tipo = tipoCadastro.value;
+
+        // --- TRAVA DE SEGURANÇA PARA PROFISSIONAIS ---
+        if (tipo === 'profissional') {
+            const conselho = document.getElementById('cad-conselho').value.trim();
+            const registro = document.getElementById('cad-num-registro').value.trim();
+            if (!conselho || !registro) {
+                showToast('O Conselho (ex: CRM) e o Registro são obrigatórios por lei!', 'warning');
+                return; // Interrompe a função e não salva
+            }
+        }
+        // ---------------------------------------------
+
         const btnSalvar = e.target.querySelector('button[type="submit"]');
         const textoOriginal = btnSalvar.innerHTML;
         
@@ -77,20 +92,28 @@ export function initPacientes() {
 
         try {
             if (tipo === 'paciente') {
-                // Salvando na coleção 'pacientes' do Firestore
-                await addDoc(collection(db, "pacientes"), {
+                const dadosParaSalvar = {
                     ...baseData,
                     sangue: document.getElementById('cad-sangue').value,
                     alergias: document.getElementById('cad-alergias').value,
                     convenio: document.getElementById('cad-convenio').value || 'Particular',
                     carteirinha: document.getElementById('cad-carteirinha').value,
                     emergencia: document.getElementById('cad-emergencia').value,
-                    responsavel: document.getElementById('cad-responsavel').value,
-                    evolucoes: [] // Array vazio para receber o prontuário no futuro
-                });
-                showToast('Paciente salvo no banco de dados com sucesso!', 'success');
+                    responsavel: document.getElementById('cad-responsavel').value
+                };
+
+                if (pacienteEmEdicaoId) {
+                    // Modo Edição (Atualiza na nuvem)
+                    await updateDoc(doc(db, "pacientes", pacienteEmEdicaoId), dadosParaSalvar);
+                    showToast('Dados do paciente atualizados!', 'success');
+                } else {
+                    // Modo Novo Cadastro (Cria na nuvem mantendo as evoluções vazias no início)
+                    dadosParaSalvar.evolucoes = [];
+                    await addDoc(collection(db, "pacientes"), dadosParaSalvar);
+                    showToast('Paciente salvo no banco de dados!', 'success');
+                }
             } else {
-                // Salvando na coleção 'profissionais'
+                // (Mantenha o código original de profissionais aqui)
                 await addDoc(collection(db, "profissionais"), {
                     ...baseData,
                     conselho: document.getElementById('cad-conselho').value,
@@ -103,13 +126,11 @@ export function initPacientes() {
             }
 
             modalCadastro.classList.remove('active');
-            // Atualize as tabelas lendo a nuvem novamente após salvar um novo cadastro!
+            e.target.reset();
+            pacienteEmEdicaoId = null; // Desliga a chave de edição ao terminar!
+            
             await carregarPacientes(); 
             await carregarProfissionais();
-            e.target.reset();
-            
-            // Nota: Por enquanto não vamos atualizar a tabela na tela, 
-            // primeiro vamos confirmar se o dado chegou no Firebase.
 
         } catch (error) {
             console.error("Erro ao salvar no Firestore: ", error);
@@ -157,10 +178,21 @@ export function initPacientes() {
     **Diagnóstico:** ${document.getElementById('pep-diagnostico').value || 'N/A'}
     **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim();
 
+        // Descobre quem é o médico que está salvando a evolução
+        const profId = document.getElementById('pep-profissional').value;
+        const profissional = clinicaState.profissionais.find(p => String(p.id) === String(profId));
+        
+        if (!profissional) {
+            showToast('Selecione um profissional para assinar a ficha.', 'warning');
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+            return;
+        }
+
         const novaEvolucao = {
             data: new Date().toLocaleString('pt-BR'),
             texto: texto,
-            assinatura: 'Assinado por Dr. Administrador (ICP-Brasil)'
+            assinatura: `Assinado digitalmente por ${profissional.nome} | ${profissional.conselho}: ${profissional.registro}`
         };
 
         // Garante que o array existe antes de dar o push
@@ -189,12 +221,62 @@ export function initPacientes() {
     });
 
     // Delegação de eventos para abrir o PEP a partir da tabela
+    // Delegação de eventos da tabela de pacientes (Abrir, Editar, Excluir)
     const patientListBody = document.getElementById('patient-table-body-list');
     if (patientListBody) {
-        patientListBody.addEventListener('click', (e) => {
-            const btn = e.target.closest('.btn-abrir-prontuario');
-            // Removemos o 'Number()' para que ele aceite as letras do Firebase
-            if (btn) abrirProntuario(btn.getAttribute('data-id'));
+        patientListBody.addEventListener('click', async (e) => {
+            const btnAbrir = e.target.closest('.btn-abrir-prontuario');
+            const btnEditar = e.target.closest('.btn-editar-paciente');
+            const btnExcluir = e.target.closest('.btn-excluir-paciente');
+
+            if (btnAbrir) {
+                abrirProntuario(btnAbrir.getAttribute('data-id'));
+            }
+
+            if (btnExcluir) {
+                const idPac = btnExcluir.getAttribute('data-id');
+                if (confirm('Atenção: Deseja realmente excluir permanentemente este paciente e todo o seu prontuário?')) {
+                    try {
+                        await deleteDoc(doc(db, "pacientes", idPac));
+                        showToast('Paciente excluído do sistema.', 'success');
+                        await carregarPacientes();
+                    } catch (error) {
+                        console.error("Erro ao excluir: ", error);
+                        showToast('Falha ao excluir paciente.', 'error');
+                    }
+                }
+            }
+
+            if (btnEditar) {
+                const idPac = btnEditar.getAttribute('data-id');
+                const paciente = clinicaState.pacientes.find(p => String(p.id) === String(idPac));
+                
+                if (paciente) {
+                    pacienteEmEdicaoId = paciente.id; // Liga a chave de edição
+                    
+                    // Preenche os campos do formulário magicamente
+                    document.getElementById('tipo-cadastro').value = 'paciente';
+                    abrirModalCadastro('paciente'); 
+                    
+                    // Pula a etapa de verificação de CPF
+                    document.getElementById('step-verificacao-cpf').style.display = 'none';
+                    document.getElementById('step-dados-cadastrais').style.display = 'grid';
+                    
+                    document.getElementById('cad-nome').value = paciente.nome;
+                    document.getElementById('cad-cpf').value = paciente.cpf;
+                    document.getElementById('cad-rg').value = paciente.rg || '';
+                    document.getElementById('cad-nascimento').value = paciente.nascimento;
+                    document.getElementById('cad-mae').value = paciente.mae || '';
+                    document.getElementById('cad-tel').value = paciente.telefone;
+                    document.getElementById('cad-email').value = paciente.email || '';
+                    document.getElementById('cad-sangue').value = paciente.sangue || '';
+                    document.getElementById('cad-alergias').value = paciente.alergias || '';
+                    document.getElementById('cad-convenio').value = paciente.convenio || '';
+                    document.getElementById('cad-carteirinha').value = paciente.carteirinha || '';
+                    document.getElementById('cad-emergencia').value = paciente.emergencia || '';
+                    document.getElementById('cad-responsavel').value = paciente.responsavel || '';
+                }
+            }
         });
     }
 
@@ -233,6 +315,13 @@ export function abrirProntuario(idPaciente) {
         document.querySelector('[data-target="pacientes"]').classList.add('active');
         
         pacienteAtivoId = paciente.id;
+
+        // Preenche a lista de profissionais para assinatura
+        const selProf = document.getElementById('pep-profissional');
+        if (selProf) {
+            selProf.innerHTML = '<option value="" disabled selected>Selecione para assinar...</option>' + 
+                clinicaState.profissionais.map(p => `<option value="${p.id}">${p.nome} (${p.conselho}: ${p.registro})</option>`).join('');
+        }
         
         renderizarEvolucoes(paciente);
         renderizarResumoPacienteAtivo(); // É esta função que desenha a tabela do paciente
@@ -288,9 +377,17 @@ export function atualizarTabelaPacientes() {
                 <td>${p.convenio}</td>
                 <td style="color:red">${p.alergias || '-'}</td>
                 <td>
-                    <button class="btn-action btn-abrir-prontuario" data-id="${p.id}">
-                        <i class="fa-regular fa-folder-open"></i> Acessar Ficha
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-action btn-abrir-prontuario" data-id="${p.id}" title="Acessar Ficha">
+                            <i class="fa-regular fa-folder-open"></i>
+                        </button>
+                        <button class="btn-action btn-editar-paciente" data-id="${p.id}" style="color: var(--primary-light); border-color: var(--primary-light);" title="Editar Dados">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="btn-action btn-excluir-paciente" data-id="${p.id}" style="color: #dc3545; border-color: #dc3545;" title="Excluir Cadastro">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>`
         ).join('');

@@ -92,7 +92,13 @@ export function abrirModalAgendamento(hora = '', profId = '', data = '') {
     if(data) document.getElementById('agenda-data').value = data;
     else document.getElementById('agenda-data').value = inputDataAgenda.value;
     
-    if(hora) document.getElementById('agenda-hora').value = hora;
+    const selectHora = document.getElementById('agenda-hora');
+    if(hora) {
+        selectHora.value = hora; // Preenche automático se clicar no calendário
+    } else {
+        selectHora.value = ""; // Limpa o campo se clicar no botão "+ Agendar"
+    }
+    
     if(profId) selProf.value = profId;
     
     modalAgenda.classList.add('active');

@@ -1,31 +1,49 @@
 import { clinicaState } from './state.js';
 import { showToast } from './Ferramentas.js';
 
+import { db, collection, addDoc, getDocs } from './firebase.js';
+
 export function initEstoque() {
     const modalEstoque = document.getElementById('modal-estoque');
     
     document.getElementById('btn-abrir-modal-estoque').addEventListener('click', () => modalEstoque.classList.add('active'));
     document.getElementById('btn-close-estoque').addEventListener('click', () => modalEstoque.classList.remove('active'));
     
-    document.getElementById('form-estoque').addEventListener('submit', (e) => {
+    document.getElementById('form-estoque').addEventListener('submit', async (e) => {
         e.preventDefault();
-        clinicaState.estoque.push({
-            id: Date.now(),
-            codigo: document.getElementById('est-codigo').value,
-            nome: document.getElementById('est-nome').value,
-            apresentacao: document.getElementById('est-apresentacao').value,
-            anvisa: document.getElementById('est-anvisa').value,
-            lote: document.getElementById('est-lote').value,
-            validade: document.getElementById('est-validade').value,
-            qtd: parseInt(document.getElementById('est-qtd').value),
-            min: parseInt(document.getElementById('est-min').value),
-            controle: document.getElementById('est-controle').value
-        });
         
-        modalEstoque.classList.remove('active');
-        e.target.reset();
-        atualizarTabelaEstoque();
-        showToast('Item registrado no estoque.');
+        const btnSalvar = e.target.querySelector('button[type="submit"]');
+        const textoOriginal = btnSalvar.innerHTML;
+        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registrando...';
+        btnSalvar.disabled = true;
+
+        try {
+            await addDoc(collection(db, "estoque"), {
+                codigo: document.getElementById('est-codigo').value,
+                nome: document.getElementById('est-nome').value,
+                apresentacao: document.getElementById('est-apresentacao').value,
+                anvisa: document.getElementById('est-anvisa').value,
+                lote: document.getElementById('est-lote').value,
+                validade: document.getElementById('est-validade').value,
+                qtd: parseInt(document.getElementById('est-qtd').value),
+                min: parseInt(document.getElementById('est-min').value),
+                controle: document.getElementById('est-controle').value
+            });
+            
+            modalEstoque.classList.remove('active');
+            e.target.reset();
+            showToast('Item registrado no estoque com sucesso.', 'success');
+            
+            // Recarrega os dados do Firebase para atualizar a tabela
+            await carregarEstoque(); 
+            
+        } catch (error) {
+            console.error("Erro no estoque: ", error);
+            showToast('Falha ao registrar item.', 'error');
+        } finally {
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+        }
     });
 }
 
@@ -52,4 +70,25 @@ export function atualizarTabelaEstoque() {
             <td><button class="btn-action">Baixar Cód.Barras</button></td>
         </tr>`;
     }).join('');
+}
+
+export async function carregarEstoque() {
+    try {
+        const querySnapshot = await getDocs(collection(db, "estoque"));
+        clinicaState.estoque = []; 
+        
+        querySnapshot.forEach((doc) => {
+            clinicaState.estoque.push({
+                ...doc.data(),
+                id: String(doc.id)
+            });
+        });
+        
+        atualizarTabelaEstoque();
+        verificarAlertasEstoque(); // Dispara os avisos de validade e quantidade mínima
+        
+    } catch (error) {
+        console.error("Erro ao buscar dados do estoque: ", error);
+        showToast('Erro ao carregar o inventário.', 'error');
+    }
 }

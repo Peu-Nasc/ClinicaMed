@@ -1,6 +1,8 @@
 import { clinicaState } from './state.js';
 import { formatCurrency, showToast } from './Ferramentas.js';
 
+import { db, collection, addDoc, getDocs } from './firebase.js';
+
 export function initFinanceiro() {
     const modalFinanceiro = document.getElementById('modal-financeiro');
     
@@ -13,31 +15,45 @@ export function initFinanceiro() {
 
     document.getElementById('btn-close-financeiro').addEventListener('click', () => modalFinanceiro.classList.remove('active'));
 
-    document.getElementById('form-financeiro').addEventListener('submit', (e) => {
+    document.getElementById('form-financeiro').addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        const btnSalvar = e.target.querySelector('button[type="submit"]');
+        const textoOriginal = btnSalvar.innerHTML;
+        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Lançando...';
+        btnSalvar.disabled = true;
+        
         let valorInput = document.getElementById('fin-valor').value;
-        // Se estiver usando a máscara do IMask, removemos os pontos de milhar antes de salvar
+        // Tratamento da máscara para converter de volta para número puro
         if (typeof valorInput === 'string') {
             valorInput = valorInput.replace(/\./g, '').replace(',', '.');
         }
 
-        clinicaState.financeiro.lancamentos.push({
-            id: Date.now(),
-            tipo: document.getElementById('fin-tipo').value,
-            vinculo: document.getElementById('fin-vinculo').value,
-            pagamento: document.getElementById('fin-pagamento').value,
-            status: document.getElementById('fin-status').value,
-            competencia: document.getElementById('fin-competencia').value,
-            caixa: document.getElementById('fin-caixa').value,
-            valor: parseFloat(valorInput)
-        });
-        
-        modalFinanceiro.classList.remove('active');
-        e.target.reset();
-        atualizarTabelaFinanceiro();
-        calcularDRE();
-        showToast('Lançamento financeiro salvo.');
+        try {
+            await addDoc(collection(db, "financeiro"), {
+                tipo: document.getElementById('fin-tipo').value,
+                vinculo: document.getElementById('fin-vinculo').value,
+                pagamento: document.getElementById('fin-pagamento').value,
+                status: document.getElementById('fin-status').value,
+                competencia: document.getElementById('fin-competencia').value,
+                caixa: document.getElementById('fin-caixa').value,
+                valor: parseFloat(valorInput)
+            });
+            
+            modalFinanceiro.classList.remove('active');
+            e.target.reset();
+            showToast('Lançamento registrado na nuvem com sucesso.', 'success');
+            
+            // Recarrega os dados do Firebase para atualizar a tabela e a DRE
+            await carregarFinanceiro(); 
+            
+        } catch (error) {
+            console.error("Erro no caixa: ", error);
+            showToast('Falha ao registrar lançamento financeiro.', 'error');
+        } finally {
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+        }
     });
 }
 
@@ -82,4 +98,25 @@ export function atualizarTabelaFinanceiro() {
             <td class="${isEntrada ? 'positivo' : 'negativo'}">${isEntrada ? '+' : '-'} ${formatCurrency(l.valor)}</td>
         </tr>`;
     }).join('');
+}
+
+export async function carregarFinanceiro() {
+    try {
+        const querySnapshot = await getDocs(collection(db, "financeiro"));
+        clinicaState.financeiro.lancamentos = []; 
+        
+        querySnapshot.forEach((doc) => {
+            clinicaState.financeiro.lancamentos.push({
+                ...doc.data(),
+                id: String(doc.id)
+            });
+        });
+        
+        atualizarTabelaFinanceiro();
+        calcularDRE(); // Atualiza os painéis da Dashboard Analítica!
+        
+    } catch (error) {
+        console.error("Erro ao buscar dados financeiros: ", error);
+        showToast('Erro ao carregar o livro caixa.', 'error');
+    }
 }

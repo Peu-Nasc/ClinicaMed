@@ -68,8 +68,13 @@
                 <button class="menu-btn" data-target="financeiro"><i class="fa-solid fa-cash-register"></i> Financeiro</button>
             </nav>
             <div class="user-profile">
-                <p>Dr. Administrador</p>
-                <small>CRM: 12345-BA | ICP-Brasil Ativo</small>
+                <!-- Colocamos IDs para o JavaScript conseguir injetar os dados -->
+                <p id="profile-user-name">Carregando...</p>
+                <small id="profile-clinic-status"><i class="fa-solid fa-shield-check"></i> Licença Ativa</small>
+                
+                <button id="btn-logout" class="btn-action" style="width: 100%; margin-top: 12px; border-color: #dc3545; color: #dc3545;">
+                    <i class="fa-solid fa-power-off"></i> Encerrar Sessão
+                </button>
             </div>
         </aside>
 
@@ -164,6 +169,12 @@
                             <div class="pep-nova-evolucao">
                                 <h4>Registrar Evolução</h4>
                                 <form id="form-evolucao" class="form-grid">
+                                    <div class="form-group full-width">
+                                        <label>Profissional Responsável (Assinatura) *</label>
+                                        <select id="pep-profissional" class="input-premium" required>
+                                            <option value="" disabled selected>Selecione para assinar...</option>
+                                        </select>
+                                    </div>
                                     <div class="form-group full-width">
                                         <label>Anamnese / Queixa Principal</label>
                                         <textarea id="pep-anamnese" class="textarea-form" rows="2" required></textarea>
@@ -376,7 +387,7 @@
                     </div>
                     <div class="form-group"><label>Data da Competência (Fato) *</label><input type="date" id="fin-competencia" class="input-premium" required></div>
                     <div class="form-group"><label>Data do Caixa (Recebimento) *</label><input type="date" id="fin-caixa" class="input-premium" required></div>
-                    <div class="form-group full-width"><label>Valor (R$) *</label><input type="number" id="fin-valor" step="0.01" class="input-premium" required></div>
+                    <div class="form-group full-width"><label>Valor (R$) *</label><input type="text" id="fin-valor" class="input-premium" required placeholder="0,00"></div>
                     <div class="form-actions full-width"><button type="submit" class="btn-primary">Lançar no Caixa</button></div>
                 </form>
             </div>
@@ -424,7 +435,18 @@
                     <div class="form-group full-width"><label>Paciente</label><select id="agenda-paciente" class="input-premium" required></select></div>
                     <div class="form-group full-width"><label>Profissional</label><select id="agenda-profissional" class="input-premium" required></select></div>
                     <div class="form-group"><label>Data</label><input type="date" id="agenda-data" class="input-premium" required></div>
-                    <div class="form-group"><label>Horário</label><input type="time" id="agenda-hora" class="input-premium" required></div>
+                    <div class="form-group">
+                        <label>Horário</label>
+                        <select id="agenda-hora" class="input-premium" required>
+                            <option value="" disabled selected>Selecione um horário</option>
+                            <option value="08:00">08:00</option>
+                            <option value="09:00">09:00</option>
+                            <option value="10:00">10:00</option>
+                            <option value="14:00">14:00</option>
+                            <option value="15:00">15:00</option>
+                            <option value="16:00">16:00</option>
+                        </select>
+                    </div>
                     <div class="form-actions full-width"><button type="submit" class="btn-primary">Confirmar</button></div>
                 </form>
             </div>

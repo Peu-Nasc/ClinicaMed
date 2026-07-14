@@ -1,10 +1,10 @@
 import { showToast } from './Ferramentas.js';
 // Importamos a instância de autenticação do nosso novo arquivo
-import { auth, signInWithEmailAndPassword, onAuthStateChanged } from './firebase.js';
-
+import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from './firebase.js';
 import { carregarPacientes, carregarProfissionais } from './pacientes.js'; 
-
 import { carregarAgendamentos } from './agenda.js';
+import { carregarFinanceiro } from './financeiro.js';
+import { carregarEstoque } from './estoque.js';
 
 export function initAuth() {
     const formLogin = document.getElementById('form-login');
@@ -16,10 +16,21 @@ export function initAuth() {
             loginScreen.classList.remove('active');
             loginScreen.style.display = 'none';
             
-            // 2. Chame a função AQUI. O sistema só busca dados após confirmar o usuário
+            // Lógica dinâmica para o nome do usuário
+            const userNameEl = document.getElementById('profile-user-name');
+            if (userNameEl && user.email) {
+                // Pega a parte do e-mail antes do @ (ex: dr.joao@clinica.com vira "dr.joao")
+                let nome = user.email.split('@')[0];
+                // Deixa a primeira letra maiúscula
+                nome = nome.charAt(0).toUpperCase() + nome.slice(1);
+                userNameEl.textContent = 'Olá, ' + nome;
+            }
+            
             carregarPacientes(); 
             carregarProfissionais();
-            carregarAgendamentos()
+            carregarAgendamentos();
+            carregarFinanceiro();
+            carregarEstoque();
         } else {
             loginScreen.style.display = 'flex';
             setTimeout(() => loginScreen.classList.add('active'), 10);
@@ -75,7 +86,25 @@ export function initAuth() {
     });
 
     btnSolicitarAcesso.addEventListener('click', () => {
-        const mensagem = encodeURIComponent("Olá, gostaria de solicitar minhas credenciais de acesso ao sistema ERP.");
-        window.open(`https://wa.me/5511999999999?text=${mensagem}`, '_blank');
+        const mensagem = encodeURIComponent("Olá JS Ferreira, gostaria de solicitar minhas credenciais de acesso ao sistema ERP.");
+        window.open(`https://wa.me/5575981701297?text=${mensagem}`, '_blank');
     });
+
+    // 3. Botão de Logout
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', async () => {
+            try {
+                // Informa ao Firebase para destruir a sessão atual
+                await signOut(auth);
+                
+                // Recarrega a página forçadamente para limpar toda a memória RAM (clinicaState)
+                // e garantir que o próximo usuário pegue o sistema do zero.
+                window.location.reload(); 
+            } catch (error) {
+                console.error("Erro ao fazer logout:", error);
+                showToast('Erro ao tentar encerrar a sessão.', 'error');
+            }
+        });
+    }
 }
