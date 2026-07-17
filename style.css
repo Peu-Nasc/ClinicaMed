@@ -625,29 +625,69 @@ body {
     padding-right: 10px;
 }
 
-.timeline-item {
-    background: #f8fbff;
-    border-left: 4px solid var(--primary-light);
-    padding: 15px;
-    border-radius: 0 8px 8px 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+/* ================== HISTÓRICO MINIMIZADO (ACCORDION) ================== */
+details.timeline-item {
+    background: #ffffff !important;
+    border: 1px solid var(--border-color) !important;
+    border-left: 4px solid var(--primary-light) !important;
+    border-radius: 8px;
+    padding: 0 !important;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
+    transition: all 0.3s ease;
 }
 
-.timeline-meta {
+details.timeline-item[open] {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+    margin-bottom: 20px;
+    border-left-width: 6px !important;
+}
+
+summary.timeline-meta {
     display: flex;
     justify-content: space-between;
-    font-size: 0.85rem;
-    color: var(--text-light);
-    margin-bottom: 8px;
-    font-weight: 600;
+    align-items: center;
+    padding: 15px 20px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    background: #f8fbff;
+    border-radius: 8px;
+    list-style: none; /* Esconde a seta padrão */
+    margin-bottom: 0;
+    transition: background 0.2s;
+}
+
+/* Tira a setinha padrão do HTML nos navegadores baseados em Chrome */
+summary.timeline-meta::-webkit-details-marker {
+    display: none;
+}
+
+summary.timeline-meta:hover {
+    background: #eef4fc;
+}
+
+.assinatura-meta {
+    color: #198754;
+    font-size: 0.80rem;
+    font-weight: normal;
 }
 
 .timeline-content {
+    padding: 15px 20px;
+    border-top: 1px solid #e8eef7;
+    border-radius: 0 0 8px 8px;
+    margin-top: 0;
+    background-color: #ffffff;
     font-size: 0.95rem;
     color: var(--text-main);
-    line-height: 1.5;
-    white-space: pre-wrap; /* Mantém as quebras de linha do textarea */
-    
+    line-height: 1.6;
+}
+
+.timeline-content strong {
+    color: var(--primary-color);
+    font-size: 0.90rem;
+    text-transform: uppercase;
 }
 
 
@@ -1062,4 +1102,91 @@ body {
     font-size: 3.5rem;
     color: var(--primary-color);
     margin-bottom: 15px;
+}
+
+/* ================== SISTEMA DE ABAS ================== */
+.pep-tabs {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-light);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tab-btn:hover { background: #f1f5f9; }
+
+.tab-btn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: fadeIn 0.4s ease; }
+
+/* ================== ÁREA DE IMPRESSÃO HOSPITALAR ================== */
+.print-only { display: none; }
+
+@media print {
+    /* Esconde o sistema inteiro */
+    body * { visibility: hidden; }
+    
+    /* Mostra SOMENTE o molde da receita */
+    #print-area-receita, #print-area-receita * { visibility: visible; }
+    
+    #print-area-receita {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        display: block;
+        padding: 40px;
+        background: white;
+    }
+
+    .print-header { 
+        text-align: center; 
+        border-bottom: 2px solid black; 
+        padding-bottom: 20px; 
+        margin-bottom: 30px; 
+    }
+    
+    .print-header h2 { font-size: 24px; color: black; margin-bottom: 5px; }
+    
+    .print-paciente { 
+        margin-bottom: 40px; 
+        font-size: 18px; 
+        display: flex; 
+        justify-content: space-between;
+    }
+    
+    .print-body { 
+        min-height: 400px; 
+        font-size: 18px; 
+        line-height: 1.8; 
+        white-space: pre-wrap; 
+        margin-bottom: 60px;
+    }
+    
+    .print-footer { text-align: center; margin-top: 50px; }
+    
+    .assinatura-linha { 
+        border-top: 1px solid black; 
+        width: 400px; 
+        margin: 0 auto 10px auto; 
+    }
 }

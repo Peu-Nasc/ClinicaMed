@@ -210,9 +210,18 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="pep-grid">
+                            
+                            <!-- NAVEGAÇÃO DE ABAS DO PRONTUÁRIO -->
+                            <div class="pep-tabs">
+                                <button class="tab-btn active" data-tab="tab-evolucao"><i class="fa-solid fa-notes-medical"></i> Nova Evolução</button>
+                                <button class="tab-btn" data-tab="tab-historico"><i class="fa-solid fa-clock-rotate-left"></i> Histórico Clínico</button>
+                                <button class="tab-btn" data-tab="tab-receita"><i class="fa-solid fa-file-prescription"></i> Receituário (Imprimir)</button>
+                            </div>
+
+                            <!-- ABA 1: NOVA EVOLUÇÃO -->
+                            <div id="tab-evolucao" class="tab-content active">
                                 <div class="pep-nova-evolucao">
-                                    <h4>Registrar Evolução</h4>
+                                    <h4>Registrar Atendimento do Dia</h4>
                                     <form id="form-evolucao" class="form-grid">
                                         <div class="form-group full-width">
                                             <label>Profissional Responsável (Assinatura) *</label>
@@ -223,15 +232,53 @@
                                         <div class="form-group full-width"><label>Anamnese / Queixa Principal</label><textarea id="pep-anamnese" class="textarea-form" rows="2" required></textarea></div>
                                         <div class="form-group full-width"><label>Exame Físico</label><textarea id="pep-exame-fisico" class="textarea-form" rows="2" required></textarea></div>
                                         <div class="form-group full-width"><label>Diagnóstico (CID)</label><textarea id="pep-diagnostico" class="textarea-form" rows="2"></textarea></div>
-                                        <div class="form-group full-width"><label>Conduta e Prescrição</label><textarea id="pep-prescricao" class="textarea-form" rows="3" required></textarea></div>
-                                        <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-signature"></i> Assinar e Salvar</button></div>
+                                        <div class="form-group full-width"><label>Conduta e Prescrição (Evolução interna)</label><textarea id="pep-prescricao" class="textarea-form" rows="2" required></textarea></div>
+                                        <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-signature"></i> Assinar e Salvar no Histórico</button></div>
                                     </form>
                                 </div>
+                            </div>
+
+                            <!-- ABA 2: HISTÓRICO -->
+                            <div id="tab-historico" class="tab-content">
                                 <div class="pep-historico">
-                                    <h4>Histórico Clínico</h4>
+                                    <h4>Consultas Anteriores</h4>
                                     <div class="timeline-container" id="pep-timeline"></div>
                                 </div>
                             </div>
+
+                            <!-- ABA 3: RECEITUÁRIO (PARA IMPRIMIR) -->
+                            <div id="tab-receita" class="tab-content">
+                                <div class="pep-nova-evolucao">
+                                    <h4>Gerador de Receitas / Atestados</h4>
+                                    <div class="form-group full-width">
+                                        <label>Texto da Receita (Para entregar ao paciente)</label>
+                                        <textarea id="texto-receita" class="textarea-form" rows="8" placeholder="Ex: Uso Oral&#10;1. Dipirona 500mg -------- 1 caixa&#10;Tomar 1 comprimido de 8/8h em caso de dor."></textarea>
+                                    </div>
+                                    <div class="form-actions full-width">
+                                        <button id="btn-imprimir-receita" class="btn-primary" type="button"><i class="fa-solid fa-print"></i> Gerar Impressão Oficial</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- MOLDE DA IMPRESSÃO DO HOSPITAL (Fica invisível na tela, só aparece no papel) -->
+                            <div id="print-area-receita" class="print-only">
+                                <div class="print-header">
+                                    <h2>RECEITUÁRIO MÉDICO</h2>
+                                    <p>Sistema GestãoPRO - Documento Auxiliar de Saúde</p>
+                                </div>
+                                <div class="print-paciente">
+                                    <p><strong>Paciente:</strong> <span id="print-nome-paciente"></span></p>
+                                    <p><strong>Data:</strong> <span id="print-data"></span></p>
+                                </div>
+                                <div class="print-body">
+                                    <div id="print-conteudo-receita"></div>
+                                </div>
+                                <div class="print-footer">
+                                    <div class="assinatura-linha"></div>
+                                    <p id="print-medico-nome">Assinatura e Carimbo do Profissional</p>
+                                </div>
+                            </div>
+
                         </div>
 
                     <!-- NÍVEL 2B: Área de Equipe/Profissionais (Oculta por padrão) -->

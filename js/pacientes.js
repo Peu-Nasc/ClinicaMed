@@ -144,17 +144,7 @@ export function initPacientes() {
         }
     });
 
-    // Eventos do PEP
-    document.getElementById('btn-buscar-paciente').addEventListener('click', () => {
-        const query = document.getElementById('search-paciente').value.toLowerCase();
-        const paciente = clinicaState.pacientes.find(p => p.nome.toLowerCase().includes(query) || p.cpf === query);
-        if (paciente) {
-            abrirProntuario(paciente.id);
-            showToast('Prontuário encontrado.', 'success');
-        } else {
-            showToast('Paciente não localizado.', 'error');
-        }
-    });
+    
 
     document.getElementById('btn-fechar-pep').addEventListener('click', () => {
         document.getElementById('prontuario-ativo').style.display = 'none';
@@ -309,6 +299,53 @@ export function initPacientes() {
         });
     }
 
+
+    // === LÓGICA DE ABAS DO PRONTUÁRIO ===
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    if (tabBtns.length > 0) {
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove o ativo de todas as abas
+                tabBtns.forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Ativa só a aba que clicou
+                e.currentTarget.classList.add('active');
+                const targetId = e.currentTarget.getAttribute('data-tab');
+                document.getElementById(targetId).classList.add('active');
+            });
+        });
+    }
+
+    // === LÓGICA DO RECEITUÁRIO E IMPRESSÃO ===
+    const btnImprimir = document.getElementById('btn-imprimir-receita');
+    if (btnImprimir) {
+        btnImprimir.addEventListener('click', () => {
+            const textoReceita = document.getElementById('texto-receita').value;
+            
+            if(!textoReceita.trim()) {
+                return showToast('Por favor, digite a receita antes de imprimir.', 'warning');
+            }
+
+            const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
+            const profId = document.getElementById('pep-profissional').value;
+            const profissional = clinicaState.profissionais.find(p => String(p.id) === String(profId));
+
+            if (!profissional) {
+                return showToast('Selecione o seu nome (Profissional Responsável) na aba de Nova Evolução primeiro.', 'error');
+            }
+
+            // Injeta os dados no molde de papel invisível
+            document.getElementById('print-nome-paciente').textContent = paciente.nome;
+            document.getElementById('print-data').textContent = new Date().toLocaleDateString('pt-BR');
+            document.getElementById('print-conteudo-receita').textContent = textoReceita;
+            document.getElementById('print-medico-nome').textContent = `${profissional.nome} - ${profissional.conselho}: ${profissional.registro}`;
+
+            // Abre a janela de impressão do Windows/Mac
+            window.print();
+        });
+    }
+
     // === MOTOR DE BUSCA DE PACIENTES ===
     const inputBusca = document.getElementById('search-paciente');
     const btnBuscar = document.getElementById('btn-buscar-paciente');
@@ -317,6 +354,9 @@ export function initPacientes() {
         if (!inputBusca) return;
         
         const termo = inputBusca.value.toLowerCase().trim();
+        
+        // Cria uma versão do termo contendo APENAS números (ignora os pontos e traços que o usuário não digitou)
+        const termoApenasNumeros = termo.replace(/\D/g, ''); 
         
         // Se o campo estiver vazio, mostra todo mundo
         if (termo === '') {
@@ -327,8 +367,18 @@ export function initPacientes() {
         // Filtra a lista comparando o termo com o Nome ou o CPF
         const pacientesFiltrados = clinicaState.pacientes.filter(p => {
             const nome = p.nome ? p.nome.toLowerCase() : '';
-            const cpf = p.cpf ? p.cpf : '';
-            return nome.includes(termo) || cpf.includes(termo);
+            
+            // Pega o CPF do banco e também tira os pontos e traços dele
+            const cpfOriginal = p.cpf ? p.cpf : '';
+            const cpfApenasNumeros = cpfOriginal.replace(/\D/g, '');
+
+            // Regra 1: Bate com alguma parte do nome?
+            const achouNoNome = nome.includes(termo);
+            
+            // Regra 2: Bate com o CPF? (Só compara se o usuário digitou algum número)
+            const achouNoCpf = (termoApenasNumeros !== '' && cpfApenasNumeros.includes(termoApenasNumeros));
+
+            return achouNoNome || achouNoCpf;
         });
 
         // Atualiza a tabela apenas com quem passou no filtro
@@ -394,19 +444,19 @@ function renderizarEvolucoes(paciente) {
     const container = document.getElementById('pep-timeline');
     
     container.innerHTML = paciente.evolucoes.slice().reverse().map(evo => {
-        // Mágica Front-end: Troca os **texto** por <strong>texto</strong>
+        // Formata os textos em negrito e quebras de linha
         let textoFormatado = escapeHTML(evo.texto)
             .replace(/\n/g, '<br>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             
         return `
-        <div class="timeline-item">
-            <div class="timeline-meta">
-                <span><i class="fa-regular fa-calendar"></i> ${evo.data}</span>
-                <span style="color:#198754"><i class="fa-solid fa-lock"></i> ${evo.assinatura}</span>
-            </div>
+        <details class="timeline-item">
+            <summary class="timeline-meta">
+                <span><i class="fa-regular fa-calendar"></i> <strong>${evo.data}</strong></span>
+                <span class="assinatura-meta"><i class="fa-solid fa-lock"></i> ${evo.assinatura}</span>
+            </summary>
             <div class="timeline-content">${textoFormatado}</div>
-        </div>
+        </details>
     `}).join('') || '<p>Sem registros anteriores.</p>';
 }
 
