@@ -89,23 +89,80 @@
             <div class="content-sections">
                 
                 <section id="dashboard" class="view-section active">
+                    <div class="section-header">
+                        <div>
+                            <h2>Painel de Controle e DRE</h2>
+                            <p class="top-subtitle">Visão analítica 360º da clínica</p>
+                        </div>
+                        
+                        <!-- NOVO: Filtros Inteligentes de Período -->
+                        <div class="dashboard-date" style="display: flex; gap: 10px; align-items: center;">
+                            <select id="dash-filtro-periodo" class="input-premium" style="padding: 6px 12px; font-size: 0.9rem; min-width: 150px;">
+                                <option value="mes">Últimos 30 Dias (Padrão)</option>
+                                <option value="hoje">Apenas Hoje</option>
+                                <option value="ontem">Ontem</option>
+                                <option value="semana">Últimos 7 Dias</option>
+                                <option value="tudo">Todo o Período (Tudo)</option>
+                                <option value="especifico">Data Específica...</option>
+                            </select>
+                            <input type="date" id="dash-data-especifica" class="input-premium" style="display: none; padding: 6px 12px; font-size: 0.9rem;">
+                        </div>
+                    </div>
+
+                    <h3 class="form-section-title" id="dash-titulo-financeiro" style="margin-bottom: 15px; font-size: 1rem;">Performance Financeira (Últimos 30 Dias)</h3>
                     <div class="card-grid mb-20">
-                        <div class="card card-info">
-                            <h3>Receitas (Mês)</h3>
+                        <div class="card card-info" style="border-left-color: #28a745;">
+                            <h3>Receitas Liquidadas</h3>
                             <p class="big-number positivo" id="dash-receitas">R$ 0,00</p>
                         </div>
-                        <div class="card card-info">
+                        <div class="card card-info" style="border-left-color: #dc3545;">
                             <h3>Despesas / Custos</h3>
                             <p class="big-number negativo" id="dash-despesas">R$ 0,00</p>
                         </div>
-                        <div class="card card-info">
+                        <div class="card card-info" style="border-left-color: #ffc107;">
                             <h3>Glosas Médicas</h3>
                             <p class="big-number warning" id="dash-glosas">R$ 0,00</p>
                         </div>
-                        <div class="card card-info">
+                        <div class="card card-info" style="border-left-color: var(--primary-color);">
                             <h3>Lucro Líquido (DRE)</h3>
                             <p class="big-number total" id="dash-lucro">R$ 0,00</p>
                         </div>
+                    </div>
+
+                    <h3 class="form-section-title" style="margin-bottom: 15px; margin-top: 30px; font-size: 1rem;">Raio-X Operacional</h3>
+                    <div class="dashboard-grid">
+                        
+                        <!-- Painel 1: Agenda Dinâmica -->
+                        <div class="card dashboard-panel">
+                            <h4 id="dash-titulo-agenda"><i class="fa-solid fa-calendar-check" style="color: var(--primary-light);"></i> Consultas</h4>
+                            <div class="dash-list" id="dash-list-agenda">
+                                <!-- Preenchido pelo JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- Painel 2: Alertas de Estoque (Sempre exibe o momento atual) -->
+                        <div class="card dashboard-panel">
+                            <h4><i class="fa-solid fa-triangle-exclamation" style="color: #ffc107;"></i> Alertas de Estoque (Hoje)</h4>
+                            <div class="dash-list" id="dash-list-estoque">
+                                <!-- Preenchido pelo JS -->
+                            </div>
+                        </div>
+
+                        <!-- Painel 3: Indicadores Visuais -->
+                        <div class="card dashboard-panel">
+                            <h4><i class="fa-solid fa-chart-pie" style="color: #198754;"></i> Indicadores de Saúde</h4>
+                            <div class="dash-metrics mt-15">
+                                <div class="stat-container">
+                                    <div class="stat-label"><span>Taxa de Inadimplência</span> <span id="dash-tx-inad">0%</span></div>
+                                    <div class="stat-bar"><div class="stat-fill bg-danger" id="dash-bar-inad" style="width: 0%;"></div></div>
+                                </div>
+                                <div class="stat-container mt-15" style="margin-top: 20px;">
+                                    <div class="stat-label"><span>Taxa de Glosas Médicas</span> <span id="dash-tx-glosa">0%</span></div>
+                                    <div class="stat-bar"><div class="stat-fill bg-warning" id="dash-bar-glosa" style="width: 0%;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </section>
 
@@ -393,20 +450,50 @@
 
                 <section id="financeiro" class="view-section">
                     <div class="section-header">
-                        <h2>Livro Caixa e Conciliação</h2>
-                        <button class="btn-primary" id="btn-abrir-modal-financeiro" type="button" data-open-modal="modal-financeiro"><i class="fa-solid fa-plus"></i> Novo Lançamento</button>
+                        <div>
+                            <h2>Livro Caixa e Conciliação</h2>
+                            <p class="top-subtitle">Gestão de entradas, saídas e repasses médicos</p>
+                        </div>
+                        <button class="btn-primary" id="btn-abrir-modal-financeiro" type="button" data-open-modal="modal-financeiro">
+                            <i class="fa-solid fa-plus"></i> Novo Lançamento
+                        </button>
                     </div>
-                    <div class="historico-lancamentos">
+
+                    <!-- NOVO: Mini Dashboard Financeiro Local -->
+                    <div class="card-grid mb-20" id="fin-mini-dash">
+                        <div class="card card-info" style="border-left-color: #28a745; padding: 15px;">
+                            <h3 style="font-size: 0.9rem;">Entradas (Receitas)</h3>
+                            <p class="big-number positivo" id="fin-stat-receitas" style="font-size: 1.5rem;">R$ 0,00</p>
+                        </div>
+                        <div class="card card-info" style="border-left-color: #dc3545; padding: 15px;">
+                            <h3 style="font-size: 0.9rem;">Saídas (Despesas)</h3>
+                            <p class="big-number negativo" id="fin-stat-despesas" style="font-size: 1.5rem;">R$ 0,00</p>
+                        </div>
+                        <div class="card card-info" style="border-left-color: var(--primary-color); padding: 15px;">
+                            <h3 style="font-size: 0.9rem;">Saldo do Filtro Atual</h3>
+                            <p class="big-number total" id="fin-stat-saldo" style="font-size: 1.5rem;">R$ 0,00</p>
+                        </div>
+                    </div>
+
+                    <!-- NOVO: Filtros de Pesquisa do Financeiro -->
+                    <div class="search-bar mb-20" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <input id="search-financeiro" type="text" class="input-form" placeholder="Pesquisar por Nome, Empresa ou Categoria..." style="flex: 2;">
+                        <select id="filtro-mes-financeiro" class="input-premium" style="flex: 1; cursor: pointer;">
+                            <option value="todos">Todos os Meses</option>
+                            <!-- Os meses serão gerados automaticamente pelo JavaScript -->
+                        </select>
+                    </div>
+
+                    <!-- Tabela Reorganizada e Agrupada -->
+                    <div class="historico-lancamentos table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Competência</th>
-                                    <th>Data Caixa</th>
-                                    <th>Plano de Contas</th>
-                                    <th>Paciente/Fornecedor</th>
+                                    <th>Datas (Comp / Caixa)</th>
+                                    <th>Descrição / Categoria</th>
                                     <th>Forma Pag.</th>
                                     <th>Status</th>
-                                    <th>Valor</th>
+                                    <th>Valor Líquido</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>

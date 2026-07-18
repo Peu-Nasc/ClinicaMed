@@ -1190,3 +1190,77 @@ summary.timeline-meta:hover {
         margin: 0 auto 10px auto; 
     }
 }
+
+/* =========================================================
+   11. DASHBOARD ANALÍTICO (WIDGETS PREMIUM)
+   ========================================================= */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.dashboard-panel h4 {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    font-size: 1.05rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dash-list {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 5px;
+}
+
+.dash-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #f8fbff;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-light);
+    font-size: 0.85rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.dash-list-item.warning { border-left-color: #ffc107; background: #fffdf5; }
+.dash-list-item.danger { border-left-color: #dc3545; background: #fff5f5; }
+
+.stat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.stat-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.stat-bar {
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.stat-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bg-danger { background: #dc3545 !important; }
+.bg-warning { background: #ffc107 !important; }
