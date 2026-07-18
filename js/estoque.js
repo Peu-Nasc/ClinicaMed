@@ -10,8 +10,13 @@ export function initEstoque() {
     document.getElementById('btn-abrir-modal-estoque').addEventListener('click', () => modalEstoque.classList.add('active'));
     document.getElementById('btn-close-estoque').addEventListener('click', () => {
         modalEstoque.classList.remove('active');
-        itemEmEdicaoId = null; // Desliga a edição ao cancelar
+        itemEmEdicaoId = null; 
         document.getElementById('form-estoque').reset();
+    });
+
+    // Filtro de pesquisa em tempo real
+    document.getElementById('search-estoque').addEventListener('input', (e) => {
+        atualizarTabelaEstoque(e.target.value.toLowerCase());
     });
     
     document.getElementById('form-estoque').addEventListener('submit', async (e) => {
@@ -46,7 +51,7 @@ export function initEstoque() {
             
             modalEstoque.classList.remove('active');
             e.target.reset();
-            itemEmEdicaoId = null; // Desliga a chave
+            itemEmEdicaoId = null; 
             
             await carregarEstoque(); 
             
@@ -71,15 +76,55 @@ export function verificarAlertasEstoque() {
     });
 }
 
-export function atualizarTabelaEstoque() {
-    document.getElementById('stock-table-body').innerHTML = clinicaState.estoque.map(i => {
-        const isVencido = new Date(i.validade) < new Date();
-        const badgeClass = i.qtd <= i.min || isVencido ? 'warning' : 'success';
+export function atualizarTabelaEstoque(filtro = '') {
+    const hoje = new Date();
+    let statsBaixo = 0;
+    let statsVencido = 0;
+
+    const filtrados = clinicaState.estoque.filter(i => {
+        return i.nome.toLowerCase().includes(filtro) || 
+               i.lote.toLowerCase().includes(filtro) ||
+               i.codigo.toLowerCase().includes(filtro);
+    });
+
+    document.getElementById('stock-table-body').innerHTML = filtrados.map(i => {
+        const diasVenc = Math.floor((new Date(i.validade) - hoje) / (1000 * 60 * 60 * 24));
+        const isVencido = diasVenc < 0;
+        const isVencendo = diasVenc >= 0 && diasVenc <= 30;
+        const isBaixo = i.qtd <= i.min;
+
+        // Atualiza contadores para o Dashboard
+        if (isBaixo) statsBaixo++;
+        if (isVencido || isVencendo) statsVencido++;
+
+        // Definindo o Status Visual
+        let statusBadge = '<span class="badge success">Normal</span>';
+        if (isVencido) statusBadge = '<span class="badge warning" style="background:#dc3545; color:white;">Vencido</span>';
+        else if (isVencendo) statusBadge = `<span class="badge warning">Vence em ${diasVenc} dias</span>`;
+        else if (isBaixo) statusBadge = '<span class="badge warning">Estoque Baixo</span>';
+
+        // Definindo cor da quantidade
+        const qtdColor = isBaixo ? 'color: #dc3545; font-weight: bold;' : 'color: #1B262C; font-weight: 600;';
+
         return `<tr>
-            <td>${i.codigo}</td>
-            <td><strong>${i.nome}</strong><br><small>${i.apresentacao} | ${i.controle}</small></td>
-            <td>L: ${i.lote}<br><small>Val: ${i.validade}</small></td>
-            <td><span class="badge ${badgeClass}">${i.qtd} un</span></td>
+            <td>
+                <strong>${i.nome}</strong><br>
+                <small style="color: #6C757D;">Cód: ${i.codigo} | ${i.apresentacao} | ${i.controle}</small>
+            </td>
+            <td>
+                <span style="font-weight: 600;">Lote: ${i.lote}</span><br>
+                <small style="color: #6C757D;">Val: ${i.validade}</small>
+            </td>
+            <td>
+                <!-- CONTROLES RÁPIDOS DE QUANTIDADE -->
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <button type="button" class="btn-action btn-diminuir-qtd" data-id="${i.id}" style="padding: 2px 8px; border-radius: 4px; font-size: 1.1rem; line-height: 1; border-color: #6C757D; color: #6C757D;" title="Remover 1 unidade">-</button>
+                    <span style="${qtdColor} font-size: 1.1rem; min-width: 40px; text-align: center;">${i.qtd}</span>
+                    <button type="button" class="btn-action btn-aumentar-qtd" data-id="${i.id}" style="padding: 2px 8px; border-radius: 4px; font-size: 1.1rem; line-height: 1; border-color: var(--primary-light); color: var(--primary-light);" title="Adicionar 1 unidade">+</button>
+                </div>
+                <small style="color:#6C757D; font-weight:normal;">Mínimo Ideal: ${i.min}</small>
+            </td>
+            <td>${statusBadge}</td>
             <td>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn-action btn-editar-est" data-id="${i.id}" style="color: var(--primary-light); border-color: var(--primary-light);" title="Editar Lote">
@@ -92,11 +137,43 @@ export function atualizarTabelaEstoque() {
             </td>
         </tr>`;
     }).join('');
+
+    // Atualiza os Cards do Mini Dashboard
+    document.getElementById('est-stat-total').innerText = clinicaState.estoque.length;
+    document.getElementById('est-stat-baixo').innerText = statsBaixo;
+    document.getElementById('est-stat-vencidos').innerText = statsVencido;
+}
+
+// NOVA FUNÇÃO: Atualiza direto no banco e na tela sem abrir modal
+async function atualizarQuantidadeRapida(id, mudanca) {
+    const item = clinicaState.estoque.find(i => String(i.id) === String(id));
+    if (!item) return;
+
+    const novaQtd = parseInt(item.qtd) + mudanca;
+    
+    if (novaQtd < 0) {
+        showToast('A quantidade não pode ser menor que zero.', 'error');
+        return;
+    }
+
+    // Atualização Otimista (Muda na tela antes mesmo do banco responder, para não travar o usuário)
+    item.qtd = novaQtd;
+    atualizarTabelaEstoque(document.getElementById('search-estoque').value.toLowerCase());
+
+    try {
+        await updateDoc(doc(db, "estoque", id), { qtd: novaQtd });
+    } catch (error) {
+        console.error("Erro ao atualizar quantidade rápida: ", error);
+        showToast('Erro de conexão. Quantidade revertida.', 'error');
+        
+        // Se der erro na internet, desfaz a alteração na tela
+        item.qtd -= mudanca;
+        atualizarTabelaEstoque(document.getElementById('search-estoque').value.toLowerCase());
+    }
 }
 
 export async function carregarEstoque() {
     try {
-        // Busca apenas os itens de estoque vinculados à clínica do usuário logado
         const q = query(
             collection(db, "estoque"), 
             where("clinicaId", "==", clinicaState.sessao.clinicaId)
@@ -113,7 +190,7 @@ export async function carregarEstoque() {
         });
         
         atualizarTabelaEstoque();
-        verificarAlertasEstoque(); // Dispara os avisos de validade e quantidade mínima
+        verificarAlertasEstoque(); 
              
     } catch (error) {
         console.error("Erro ao buscar dados do estoque: ", error);
@@ -121,46 +198,59 @@ export async function carregarEstoque() {
     }
 }
 
-// === DELEGAÇÃO DE EVENTOS: EDITAR E EXCLUIR NO ESTOQUE ===
-    const stockTableBody = document.getElementById('stock-table-body');
-    if (stockTableBody) {
-        stockTableBody.addEventListener('click', async (e) => {
-            const btnEditar = e.target.closest('.btn-editar-est');
-            const btnExcluir = e.target.closest('.btn-excluir-est');
+// === DELEGAÇÃO DE EVENTOS: CLIQUES NA TABELA ===
+const stockTableBody = document.getElementById('stock-table-body');
+if (stockTableBody) {
+    stockTableBody.addEventListener('click', async (e) => {
+        const btnEditar = e.target.closest('.btn-editar-est');
+        const btnExcluir = e.target.closest('.btn-excluir-est');
+        const btnAumentar = e.target.closest('.btn-aumentar-qtd');
+        const btnDiminuir = e.target.closest('.btn-diminuir-qtd');
 
-            if (btnExcluir) {
-                const idEst = btnExcluir.getAttribute('data-id');
-                if (confirm('Atenção: Deseja realmente excluir este lote do inventário?')) {
-                    try {
-                        await deleteDoc(doc(db, "estoque", idEst));
-                        showToast('Item excluído com sucesso.', 'success');
-                        await carregarEstoque();
-                    } catch (error) {
-                        console.error("Erro ao excluir: ", error);
-                        showToast('Falha ao excluir item.', 'error');
-                    }
+        // Botoes rápidos de quantidade
+        if (btnAumentar) {
+            const idEst = btnAumentar.getAttribute('data-id');
+            atualizarQuantidadeRapida(idEst, 1);
+        }
+
+        if (btnDiminuir) {
+            const idEst = btnDiminuir.getAttribute('data-id');
+            atualizarQuantidadeRapida(idEst, -1);
+        }
+
+        if (btnExcluir) {
+            const idEst = btnExcluir.getAttribute('data-id');
+            if (confirm('Atenção: Deseja realmente excluir este lote do inventário?')) {
+                try {
+                    await deleteDoc(doc(db, "estoque", idEst));
+                    showToast('Item excluído com sucesso.', 'success');
+                    await carregarEstoque();
+                } catch (error) {
+                    console.error("Erro ao excluir: ", error);
+                    showToast('Falha ao excluir item.', 'error');
                 }
             }
+        }
 
-            if (btnEditar) {
-                const idEst = btnEditar.getAttribute('data-id');
-                const item = clinicaState.estoque.find(i => String(i.id) === String(idEst));
+        if (btnEditar) {
+            const idEst = btnEditar.getAttribute('data-id');
+            const item = clinicaState.estoque.find(i => String(i.id) === String(idEst));
+            
+            if (item) {
+                itemEmEdicaoId = item.id; 
                 
-                if (item) {
-                    itemEmEdicaoId = item.id; // Liga a chave
-                    
-                    document.getElementById('est-codigo').value = item.codigo;
-                    document.getElementById('est-nome').value = item.nome;
-                    document.getElementById('est-apresentacao').value = item.apresentacao;
-                    document.getElementById('est-anvisa').value = item.anvisa;
-                    document.getElementById('est-lote').value = item.lote;
-                    document.getElementById('est-validade').value = item.validade;
-                    document.getElementById('est-qtd').value = item.qtd;
-                    document.getElementById('est-min').value = item.min;
-                    document.getElementById('est-controle').value = item.controle;
-                    
-                    modalEstoque.classList.add('active');
-                }
+                document.getElementById('est-codigo').value = item.codigo;
+                document.getElementById('est-nome').value = item.nome;
+                document.getElementById('est-apresentacao').value = item.apresentacao;
+                document.getElementById('est-anvisa').value = item.anvisa;
+                document.getElementById('est-lote').value = item.lote;
+                document.getElementById('est-validade').value = item.validade;
+                document.getElementById('est-qtd').value = item.qtd;
+                document.getElementById('est-min').value = item.min;
+                document.getElementById('est-controle').value = item.controle;
+                
+                document.getElementById('modal-estoque').classList.add('active');
             }
-        });
-    }
+        }
+    });
+}

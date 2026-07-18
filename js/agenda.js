@@ -1,9 +1,9 @@
 import { clinicaState } from './state.js';
 import { showToast } from './Ferramentas.js';
+import { db, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, where } from './firebase.js';
 
-import { db, collection, addDoc, getDocs, doc, deleteDoc, query, where } from './firebase.js';
-
-const appointmentTimes = ['08:00', '09:00', '10:00', '14:00', '15:00', '16:00'];
+// Grade expandida e profissional de horários
+const appointmentTimes = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
 export function initAgenda() {
     const modalAgenda = document.getElementById('modal-agendamento');
@@ -28,25 +28,43 @@ export function initAgenda() {
 
         const pacId = document.getElementById('agenda-paciente').value;
         const profId = document.getElementById('agenda-profissional').value;
-        
-        // Pega o nome do paciente usando String() para não ter o bug de IDs
+        const dataAgendamento = document.getElementById('agenda-data').value;
+        const horaAgendamento = document.getElementById('agenda-hora').value;
         const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacId));
+
+        // ========================================================
+        // SISTEMA DE BLOQUEIO (Impede choque de horários)
+        // ========================================================
+        const horarioOcupado = clinicaState.agenda.agendamentos.find(a => 
+            a.profId === String(profId) && 
+            a.data === dataAgendamento && 
+            a.hora === horaAgendamento
+        );
+
+        if (horarioOcupado) {
+            showToast('Atenção: Este médico já possui um paciente agendado neste horário!', 'error');
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+            return; // Interrompe o agendamento imediatamente
+        }
+        // ========================================================
 
         try {
             await addDoc(collection(db, "agendamentos"), {
                 pacId: String(pacId),
                 pacNome: paciente ? paciente.nome : 'Paciente',
                 profId: String(profId),
-                data: document.getElementById('agenda-data').value,
-                hora: document.getElementById('agenda-hora').value,
+                data: dataAgendamento,
+                hora: horaAgendamento,
+                tipo: document.getElementById('agenda-tipo').value,
+                status: 'aguardando', 
                 clinicaId: clinicaState.sessao.clinicaId
             });
             
             modalAgenda.classList.remove('active');
             e.target.reset();
-            showToast('Consulta agendada com sucesso!');
+            showToast('Consulta agendada com sucesso!', 'success');
             
-            // Recarrega a nuvem para atualizar a tela
             await carregarAgendamentos(); 
         } catch (error) {
             console.error("Erro ao agendar: ", error);
@@ -57,24 +75,40 @@ export function initAgenda() {
         }
     });
 
-    // Lógica para Cancelar Consulta (Excluir do Banco)
     const agendaContainer = document.getElementById('agenda-professionals');
     if (agendaContainer) {
+        // EVENTO: Alterar Status ou Cancelar via clique no Card
         agendaContainer.addEventListener('click', async (e) => {
             const btnCancelar = e.target.closest('.btn-cancelar-consulta');
             if (btnCancelar) {
-                e.stopPropagation(); // Evita que o clique abra o modal de novo agendamento
-                
+                e.stopPropagation();
                 if (confirm('Deseja realmente cancelar esta consulta?')) {
                     const idAgendamento = btnCancelar.getAttribute('data-id');
                     try {
                         await deleteDoc(doc(db, "agendamentos", idAgendamento));
-                        showToast('Consulta cancelada com sucesso.', 'success');
+                        showToast('Consulta cancelada.', 'success');
                         await carregarAgendamentos();
                     } catch (error) {
                         console.error("Erro ao cancelar: ", error);
                         showToast('Erro ao remover agendamento.', 'error');
                     }
+                }
+            }
+        });
+
+        // EVENTO: Mudar status direto no dropdown (Troca a cor instantaneamente)
+        agendaContainer.addEventListener('change', async (e) => {
+            if (e.target.classList.contains('select-status-agenda')) {
+                const novoStatus = e.target.value;
+                const idAgendamento = e.target.getAttribute('data-id');
+                
+                try {
+                    await updateDoc(doc(db, "agendamentos", idAgendamento), { status: novoStatus });
+                    showToast('Status atualizado!', 'success');
+                    await carregarAgendamentos(); 
+                } catch (error) {
+                    console.error("Erro ao atualizar status: ", error);
+                    showToast('Erro ao atualizar.', 'error');
                 }
             }
         });
@@ -94,11 +128,8 @@ export function abrirModalAgendamento(hora = '', profId = '', data = '') {
     else document.getElementById('agenda-data').value = inputDataAgenda.value;
     
     const selectHora = document.getElementById('agenda-hora');
-    if(hora) {
-        selectHora.value = hora; // Preenche automático se clicar no calendário
-    } else {
-        selectHora.value = ""; // Limpa o campo se clicar no botão "+ Agendar"
-    }
+    if(hora) selectHora.value = hora; 
+    else selectHora.value = ""; 
     
     if(profId) selProf.value = profId;
     
@@ -107,8 +138,13 @@ export function abrirModalAgendamento(hora = '', profId = '', data = '') {
 
 export function atualizarAgenda() {
     const container = document.getElementById('agenda-professionals');
-    if (!container) return;
+    const colHorarios = document.getElementById('time-column-slots');
+    if (!container || !colHorarios) return;
     
+    // Constrói a coluna da esquerda de forma dinâmica para ficar sempre alinhada
+    colHorarios.innerHTML = `<div class="time-slot-header">Horário</div>` + 
+        appointmentTimes.map(h => `<div class="time-slot">${h}</div>`).join('');
+
     const inputDataAgenda = document.getElementById('data-agenda');
     const filtroProfissional = document.getElementById('filtro-profissional');
     
@@ -148,18 +184,26 @@ export function atualizarAgenda() {
             
             const slot = document.createElement('div');
             if (agendamento) {
+                    const statusAtual = agendamento.status || 'aguardando';
                     slot.className = 'appointment-slot occupied';
-                    slot.dataset.status = 'confirmado';
+                    slot.dataset.status = statusAtual; 
+                    
                     slot.innerHTML = `
-                        <p class="patient-name">${agendamento.pacNome}</p>
-                        <span class="appointment-type">Consulta</span>
-                        <button class="btn-cancelar-consulta" data-id="${agendamento.id}" style="font-size: 0.75rem; margin-top: 5px; color: #dc3545; background: none; border: none; cursor: pointer; text-decoration: underline;">
-                            Cancelar
-                        </button>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <p class="patient-name">${agendamento.pacNome}</p>
+                            <button class="btn-cancelar-consulta" data-id="${agendamento.id}" title="Cancelar Horário" style="color: #dc3545; background: none; border: none; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <span class="appointment-type" style="margin-bottom: 5px; display: block;">${agendamento.tipo || 'Consulta'}</span>
+                        
+                        <select class="select-status-agenda input-premium" data-id="${agendamento.id}" style="font-size: 0.75rem; padding: 2px 5px; height: 26px; cursor: pointer;">
+                            <option value="aguardando" ${statusAtual === 'aguardando' ? 'selected' : ''}>⏳ Aguardando</option>
+                            <option value="confirmado" ${statusAtual === 'confirmado' ? 'selected' : ''}>✅ Confirmado (Chegou)</option>
+                            <option value="em-atendimento" ${statusAtual === 'em-atendimento' ? 'selected' : ''}>👨‍⚕️ Em Atendimento</option>
+                        </select>
                     `;
             } else {
                 slot.className = 'appointment-slot empty';
-                slot.textContent = 'Livre';
+                slot.textContent = 'Horário Livre';
                 slot.addEventListener('click', () => abrirModalAgendamento(hora, prof.id, dataSelecionada));
             }
             coluna.appendChild(slot);
@@ -170,7 +214,6 @@ export function atualizarAgenda() {
 
 export async function carregarAgendamentos() {
     try {
-        // Busca apenas os agendamentos que pertencem à clínica do usuário logado
         const q = query(
             collection(db, "agendamentos"), 
             where("clinicaId", "==", clinicaState.sessao.clinicaId)
@@ -182,11 +225,11 @@ export async function carregarAgendamentos() {
         querySnapshot.forEach((doc) => {
             clinicaState.agenda.agendamentos.push({
                 ...doc.data(),
-                id: String(doc.id) // Sempre garantindo o ID como texto
+                id: String(doc.id) 
             });
         });
         
-        atualizarAgenda(); // Desenha a grade de horários
+        atualizarAgenda(); 
              
     } catch (error) {
         console.error("Erro ao buscar agenda: ", error);
