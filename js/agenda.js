@@ -2,7 +2,6 @@ import { clinicaState } from './state.js';
 import { showToast } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, where } from './firebase.js';
 
-// Grade expandida e profissional de horários
 const appointmentTimes = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
 export function initAgenda() {
@@ -32,9 +31,7 @@ export function initAgenda() {
         const horaAgendamento = document.getElementById('agenda-hora').value;
         const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacId));
 
-        // ========================================================
         // SISTEMA DE BLOQUEIO (Impede choque de horários)
-        // ========================================================
         const horarioOcupado = clinicaState.agenda.agendamentos.find(a => 
             a.profId === String(profId) && 
             a.data === dataAgendamento && 
@@ -45,9 +42,8 @@ export function initAgenda() {
             showToast('Atenção: Este médico já possui um paciente agendado neste horário!', 'error');
             btnSalvar.innerHTML = textoOriginal;
             btnSalvar.disabled = false;
-            return; // Interrompe o agendamento imediatamente
+            return; 
         }
-        // ========================================================
 
         try {
             await addDoc(collection(db, "agendamentos"), {
@@ -77,7 +73,6 @@ export function initAgenda() {
 
     const agendaContainer = document.getElementById('agenda-professionals');
     if (agendaContainer) {
-        // EVENTO: Alterar Status ou Cancelar via clique no Card
         agendaContainer.addEventListener('click', async (e) => {
             const btnCancelar = e.target.closest('.btn-cancelar-consulta');
             if (btnCancelar) {
@@ -96,7 +91,6 @@ export function initAgenda() {
             }
         });
 
-        // EVENTO: Mudar status direto no dropdown (Troca a cor instantaneamente)
         agendaContainer.addEventListener('change', async (e) => {
             if (e.target.classList.contains('select-status-agenda')) {
                 const novoStatus = e.target.value;
@@ -121,8 +115,23 @@ export function abrirModalAgendamento(hora = '', profId = '', data = '') {
     const selProf = document.getElementById('agenda-profissional');
     const inputDataAgenda = document.getElementById('data-agenda');
     
+    // === TRAVA DO DOUTOR: NOVO AGENDAMENTO ===
+    let profsPermitidos = clinicaState.profissionais;
+    if (clinicaState.sessao.perfil === 'Doutor(a)') {
+        profsPermitidos = clinicaState.profissionais.filter(p => p.nome.trim().toLowerCase() === clinicaState.sessao.nome.trim().toLowerCase());
+    }
+
     selPac.innerHTML = clinicaState.pacientes.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-    selProf.innerHTML = clinicaState.profissionais.map(p => `<option value="${p.id}">${p.nome} (${p.especialidade})</option>`).join('');
+    selProf.innerHTML = profsPermitidos.map(p => `<option value="${p.id}">${p.nome} (${p.especialidade})</option>`).join('');
+    
+    // Bloqueia visualmente o campo se for médico
+    if (clinicaState.sessao.perfil === 'Doutor(a)') {
+        selProf.style.pointerEvents = 'none';
+        selProf.style.backgroundColor = '#e2e8f0';
+    } else {
+        selProf.style.pointerEvents = 'auto';
+        selProf.style.backgroundColor = '';
+    }
     
     if(data) document.getElementById('agenda-data').value = data;
     else document.getElementById('agenda-data').value = inputDataAgenda.value;
@@ -141,7 +150,6 @@ export function atualizarAgenda() {
     const colHorarios = document.getElementById('time-column-slots');
     if (!container || !colHorarios) return;
     
-    // Constrói a coluna da esquerda de forma dinâmica para ficar sempre alinhada
     colHorarios.innerHTML = `<div class="time-slot-header">Horário</div>` + 
         appointmentTimes.map(h => `<div class="time-slot">${h}</div>`).join('');
 
@@ -149,24 +157,39 @@ export function atualizarAgenda() {
     const filtroProfissional = document.getElementById('filtro-profissional');
     
     const dataSelecionada = inputDataAgenda.value;
-    const filtro = filtroProfissional.value;
     
-    filtroProfissional.innerHTML = `<option value="todos">Todos os Profissionais</option>` + 
-        clinicaState.profissionais.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-    filtroProfissional.value = filtro;
+    // === TRAVA DO DOUTOR: COLUNAS DA AGENDA ===
+    let profsPermitidos = clinicaState.profissionais;
+    let mostrarTodos = true;
+
+    if (clinicaState.sessao.perfil === 'Doutor(a)') {
+        profsPermitidos = clinicaState.profissionais.filter(p => p.nome.trim().toLowerCase() === clinicaState.sessao.nome.trim().toLowerCase());
+        mostrarTodos = false;
+    }
+
+    // Configura o Dropdown de Filtro da Tabela
+    let opcoesFiltro = '';
+    if (mostrarTodos) opcoesFiltro += `<option value="todos">Todos os Profissionais</option>`;
+    opcoesFiltro += profsPermitidos.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+    
+    // Mantém o valor anterior selecionado, se possível
+    const valorAnterior = filtroProfissional.value;
+    filtroProfissional.innerHTML = opcoesFiltro;
+    if (mostrarTodos && valorAnterior) filtroProfissional.value = valorAnterior;
     
     container.innerHTML = '';
+    let filtroAtual = filtroProfissional.value;
     
-    const profsParaExibir = filtro === 'todos' 
-        ? clinicaState.profissionais 
-        : clinicaState.profissionais.filter(p => p.id == filtro);
+    const profsParaExibir = filtroAtual === 'todos' 
+        ? profsPermitidos 
+        : profsPermitidos.filter(p => p.id == filtroAtual);
         
     if (profsParaExibir.length === 0) {
         container.innerHTML = `
             <div class="professional-column empty-column">
                 <div class="prof-header">
                     <strong>Sem Profissionais</strong>
-                    <small>Cadastre um médico para gerar a agenda</small>
+                    <small>Seu usuário não está vinculado à lista de profissionais.</small>
                 </div>
             </div>`;
         return;

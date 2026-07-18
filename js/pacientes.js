@@ -201,9 +201,17 @@ export function initPacientes() {
             await updateDoc(pacienteRef, {
                 evolucoes: paciente.evolucoes
             });
-
+            
             renderizarEvolucoes(paciente);
-            e.target.reset();
+            
+            // LIMPEZA E CORREÇÃO DO BUG AQUI:
+            e.target.reset(); 
+            
+            // Se o usuário for médico, o sistema devolve o ID dele pro campo bloqueado automaticamente
+            if (clinicaState.sessao.perfil === 'Doutor(a)') {
+                document.getElementById('pep-profissional').value = profId;
+            }
+            
             showToast('Evolução salva no Prontuário com sucesso!');
         } catch (error) {
             console.error("Erro ao salvar evolução: ", error);
@@ -407,21 +415,39 @@ export function abrirProntuario(idPaciente) {
         document.querySelector('[data-target="pacientes"]').classList.add('active');
         
         pacienteAtivoId = paciente.id;
-
-        // Preenche a lista de profissionais para assinatura
+        
+        // === TRAVA DO DOUTOR: ASSINATURA DO PRONTUÁRIO ===
         const selProf = document.getElementById('pep-profissional');
         if (selProf) {
+            let profsPermitidos = clinicaState.profissionais;
+            let travaSelect = false;
+
+            // Se for médico, filtra para achar apenas ele mesmo
+            if (clinicaState.sessao.perfil === 'Doutor(a)') {
+                profsPermitidos = clinicaState.profissionais.filter(p => p.nome.trim().toLowerCase() === clinicaState.sessao.nome.trim().toLowerCase());
+                travaSelect = true;
+            }
+
             selProf.innerHTML = '<option value="" disabled selected>Selecione para assinar...</option>' + 
-                clinicaState.profissionais.map(p => `<option value="${p.id}">${p.nome} (${p.conselho}: ${p.registro})</option>`).join('');
+                profsPermitidos.map(p => `<option value="${p.id}">${p.nome} (${p.conselho}: ${p.registro})</option>`).join('');
+            
+            // Se for médico, já seleciona o nome dele automaticamente e bloqueia o botão!
+            if (travaSelect && profsPermitidos.length > 0) {
+                selProf.value = profsPermitidos[0].id;
+                selProf.style.pointerEvents = 'none'; // Trava o clique
+                selProf.style.backgroundColor = '#e2e8f0'; // Cor de bloqueado
+            } else {
+                selProf.style.pointerEvents = 'auto';
+                selProf.style.backgroundColor = '';
+            }
         }
         
         renderizarEvolucoes(paciente);
-        renderizarResumoPacienteAtivo(); 
+        renderizarResumoPacienteAtivo();
         
         // === TRAVA VISUAL LGPD ===
-        // Oculta a área de histórico e digitação para quem não for médico
-        const areaHistorico = document.querySelector('.pep-historico'); // Área onde lista as evoluções
-        const formEvolucao = document.querySelector('.pep-nova-evolucao'); // Área de digitar evolução
+        const areaHistorico = document.querySelector('.pep-historico'); 
+        const formEvolucao = document.querySelector('.pep-nova-evolucao'); 
         
         if (clinicaState.sessao.perfil !== 'Doutor(a)') {
             if(areaHistorico) areaHistorico.style.display = 'none';
@@ -434,7 +460,6 @@ export function abrirProntuario(idPaciente) {
 
         const listaContainer = document.getElementById('lista-pacientes-container');
         if (listaContainer) listaContainer.style.display = 'none';
-
         document.getElementById('prontuario-ativo').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
