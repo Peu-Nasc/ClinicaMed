@@ -1264,3 +1264,125 @@ summary.timeline-meta:hover {
 
 .bg-danger { background: #dc3545 !important; }
 .bg-warning { background: #ffc107 !important; }
+
+
+/* =========================================================
+   12. ÁREA DE IMPRESSÃO HOSPITALAR (A4 PREMIUM)
+   ========================================================= */
+.print-only { display: none; }
+
+@media print {
+    /* Esconde o sistema inteiro */
+    body * { visibility: hidden; }
+    
+    /* Zera margens do navegador para a página inteira ser exatamente um A4 */
+    @page { margin: 0; size: A4; }
+    body { margin: 0; padding: 0; background: white; }
+    
+    /* Mostra SOMENTE o molde da receita */
+    #print-area-receita, #print-area-receita * { visibility: visible; }
+    
+    #print-area-receita {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 210mm; /* Largura exata do A4 */
+        min-height: 297mm; /* Altura exata do A4 */
+        padding: 25mm 20mm; /* Margens internas profissionais (Top/Bottom, Left/Right) */
+        box-sizing: border-box;
+        font-family: 'Times New Roman', Times, serif; /* Fonte clássica e ultra profissional para documentos */
+        color: #000;
+        background: white;
+    }
+
+    /* Cabeçalho da Clínica */
+    .print-header { 
+        display: flex;
+        align-items: center;
+        border-bottom: 2px solid #000; 
+        padding-bottom: 15px; 
+        margin-bottom: 25px; 
+    }
+    
+    .print-header-logo {
+        font-size: 40px;
+        margin-right: 20px;
+        color: #000;
+    }
+
+    .print-header-info h2 { 
+        font-size: 20px; 
+        color: #000; 
+        margin: 0 0 5px 0; 
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .print-header-info p {
+        margin: 0;
+        font-size: 11px;
+        color: #333;
+    }
+
+    /* Título do Documento (Receita, Pedido de Exame, etc) */
+    .print-doc-title {
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 25px;
+        text-decoration: underline;
+    }
+    
+    /* Quadro de Dados do Paciente */
+    .print-paciente { 
+        border: 1px solid #000;
+        padding: 12px 15px;
+        border-radius: 4px;
+        margin-bottom: 30px; 
+        font-size: 13px; 
+        line-height: 1.6;
+    }
+
+    .print-paciente-row {
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    /* Corpo do Documento */
+    .print-body { 
+        min-height: 450px; 
+        font-size: 15px; 
+        line-height: 2; 
+        white-space: pre-wrap; /* Respeita as quebras de linha que o médico digitou */
+        margin-bottom: 60px;
+    }
+    
+    /* Assinatura no Rodapé */
+    .print-footer { 
+        margin-top: 50px;
+        text-align: center; 
+    }
+    
+    .assinatura-bloco {
+        width: 60%;
+        margin: 0 auto;
+    }
+
+    .assinatura-linha { 
+        border-top: 1px solid #000; 
+        margin-bottom: 8px; 
+    }
+
+    .assinatura-nome {
+        font-size: 15px;
+        font-weight: bold;
+        margin: 0;
+    }
+
+    .assinatura-registro {
+        font-size: 13px;
+        margin: 0;
+    }
+}

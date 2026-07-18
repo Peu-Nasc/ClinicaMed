@@ -325,14 +325,15 @@ export function initPacientes() {
         });
     }
 
-    // === LÓGICA DO RECEITUÁRIO E IMPRESSÃO ===
+   // === LÓGICA DO RECEITUÁRIO E IMPRESSÃO ===
     const btnImprimir = document.getElementById('btn-imprimir-receita');
     if (btnImprimir) {
         btnImprimir.addEventListener('click', () => {
             const textoReceita = document.getElementById('texto-receita').value;
+            const tipoDoc = document.getElementById('tipo-documento-impressao').value;
             
             if(!textoReceita.trim()) {
-                return showToast('Por favor, digite a receita antes de imprimir.', 'warning');
+                return showToast('Por favor, digite o conteúdo do documento antes de imprimir.', 'warning');
             }
 
             const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
@@ -343,13 +344,23 @@ export function initPacientes() {
                 return showToast('Selecione o seu nome (Profissional Responsável) na aba de Nova Evolução primeiro.', 'error');
             }
 
-            // Injeta os dados no molde de papel invisível
+            // Injeta os dados dinamicamente no molde invisível
+            document.getElementById('print-tipo-doc').textContent = tipoDoc;
             document.getElementById('print-nome-paciente').textContent = paciente.nome;
+            
+            // Tratamento de dados extras do paciente
+            const dataNasc = paciente.nascimento ? paciente.nascimento.split('-').reverse().join('/') : 'Não informada';
+            document.getElementById('print-nasc-paciente').textContent = dataNasc;
+            document.getElementById('print-cpf-paciente').textContent = paciente.cpf || 'Não informado';
+            
             document.getElementById('print-data').textContent = new Date().toLocaleDateString('pt-BR');
             document.getElementById('print-conteudo-receita').textContent = textoReceita;
-            document.getElementById('print-medico-nome').textContent = `${profissional.nome} - ${profissional.conselho}: ${profissional.registro}`;
+            
+            // Assinatura
+            document.getElementById('print-medico-nome').textContent = profissional.nome;
+            document.getElementById('print-medico-registro').textContent = `${profissional.conselho}: ${profissional.registro}`;
 
-            // Abre a janela de impressão do Windows/Mac
+            // Abre a janela do sistema operacional para imprimir
             window.print();
         });
     }

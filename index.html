@@ -303,38 +303,72 @@
                                 </div>
                             </div>
 
-                            <!-- ABA 3: RECEITUÁRIO (PARA IMPRIMIR) -->
+                            <!-- ABA 3: GERADOR DE DOCUMENTOS MÉDICOS -->
                             <div id="tab-receita" class="tab-content">
                                 <div class="pep-nova-evolucao">
-                                    <h4>Gerador de Receitas / Atestados</h4>
-                                    <div class="form-group full-width">
-                                        <label>Texto da Receita (Para entregar ao paciente)</label>
-                                        <textarea id="texto-receita" class="textarea-form" rows="8" placeholder="Ex: Uso Oral&#10;1. Dipirona 500mg -------- 1 caixa&#10;Tomar 1 comprimido de 8/8h em caso de dor."></textarea>
-                                    </div>
-                                    <div class="form-actions full-width">
-                                        <button id="btn-imprimir-receita" class="btn-primary" type="button"><i class="fa-solid fa-print"></i> Gerar Impressão Oficial</button>
+                                    <h4>Gerador de Documentos Médicos</h4>
+                                    
+                                    <div class="form-grid">
+                                        <div class="form-group full-width">
+                                            <label>Tipo de Documento Oficial</label>
+                                            <select id="tipo-documento-impressao" class="input-premium">
+                                                <option value="RECEITUÁRIO MÉDICO">Receituário Médico Simples</option>
+                                                <option value="SOLICITAÇÃO DE EXAMES">Solicitação de Exames</option>
+                                                <option value="ATESTADO MÉDICO">Atestado Médico</option>
+                                                <option value="ENCAMINHAMENTO MÉDICO">Encaminhamento Especializado</option>
+                                                <option value="RELATÓRIO MÉDICO">Relatório Clínico</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group full-width">
+                                            <label>Conteúdo do Documento</label>
+                                            <textarea id="texto-receita" class="textarea-form" rows="10" placeholder="Digite aqui os medicamentos, os exames solicitados ou o texto do atestado..."></textarea>
+                                        </div>
+                                        <div class="form-actions full-width">
+                                            <button id="btn-imprimir-receita" class="btn-primary" type="button"><i class="fa-solid fa-print"></i> Gerar Impressão Oficial</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- MOLDE DA IMPRESSÃO DO HOSPITAL (Fica invisível na tela, só aparece no papel) -->
+                            <!-- MOLDE DA IMPRESSÃO HOSPITALAR (A4 PREMIUM INVISÍVEL NA TELA) -->
                             <div id="print-area-receita" class="print-only">
                                 <div class="print-header">
-                                    <h2>RECEITUÁRIO MÉDICO</h2>
-                                    <p>Sistema GestãoPRO - Documento Auxiliar de Saúde</p>
+                                    <div class="print-header-logo">
+                                        <i class="fa-solid fa-staff-snake"></i>
+                                    </div>
+                                    <div class="print-header-info">
+                                        <h2>GestãoPRO Clínicas</h2>
+                                        <p>Rua da Excelência Médica, 1000 - Bairro Centro, São Paulo/SP</p>
+                                        <p>Contato: (11) 90000-0000 | CNPJ: 00.000.000/0001-00</p>
+                                    </div>
                                 </div>
+
+                                <h1 class="print-doc-title" id="print-tipo-doc">RECEITUÁRIO MÉDICO</h1>
+                                
                                 <div class="print-paciente">
-                                    <p><strong>Paciente:</strong> <span id="print-nome-paciente"></span></p>
-                                    <p><strong>Data:</strong> <span id="print-data"></span></p>
+                                    <div class="print-paciente-row">
+                                        <span><strong>Paciente:</strong> <span id="print-nome-paciente"></span></span>
+                                    </div>
+                                    <div class="print-paciente-row" style="margin-top: 5px;">
+                                        <span><strong>Data de Nasc.:</strong> <span id="print-nasc-paciente"></span></span>
+                                        <span><strong>CPF:</strong> <span id="print-cpf-paciente"></span></span>
+                                        <span><strong>Data do Atendimento:</strong> <span id="print-data"></span></span>
+                                    </div>
                                 </div>
+
                                 <div class="print-body">
                                     <div id="print-conteudo-receita"></div>
                                 </div>
+
                                 <div class="print-footer">
-                                    <div class="assinatura-linha"></div>
-                                    <p id="print-medico-nome">Assinatura e Carimbo do Profissional</p>
+                                    <div class="assinatura-bloco">
+                                        <div class="assinatura-linha"></div>
+                                        <p class="assinatura-nome" id="print-medico-nome">Nome do Profissional</p>
+                                        <p class="assinatura-registro" id="print-medico-registro">Conselho e Registro</p>
+                                    </div>
                                 </div>
                             </div>
+                          
 
                         </div>
 
