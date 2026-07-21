@@ -76,8 +76,72 @@ export function initPacientes() {
         const textoOriginal = btnSalvar.innerHTML;
         
         // Feedback visual enquanto salva na nuvem
+        // Feedback visual enquanto salva na nuvem
         btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando na nuvem...';
         btnSalvar.disabled = true;
+
+        // FUNÇÃO DE CRIPTOGRAFIA PARA OS DADOS DE CADASTRO
+        const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
+        const encriptar = (texto) => texto ? CryptoJS.AES.encrypt(texto, chaveSecreta).toString() : '';
+
+        const baseData = {
+            nome: encriptar(document.getElementById('cad-nome').value),
+            cpf: encriptar(document.getElementById('cad-cpf').value),
+            rg: encriptar(document.getElementById('cad-rg').value),
+            nascimento: encriptar(document.getElementById('cad-nascimento').value),
+            mae: encriptar(document.getElementById('cad-mae').value),
+            telefone: encriptar(document.getElementById('cad-tel').value),
+            email: encriptar(document.getElementById('cad-email').value),
+            dataCadastro: new Date().toISOString(),
+            clinicaId: clinicaState.sessao.clinicaId 
+        };
+
+        try {
+            if (tipo === 'paciente') {
+                const dadosParaSalvar = {
+                    ...baseData,
+                    sangue: encriptar(document.getElementById('cad-sangue').value),
+                    alergias: encriptar(document.getElementById('cad-alergias').value),
+                    convenio: encriptar(document.getElementById('cad-convenio').value || 'Particular'),
+                    carteirinha: encriptar(document.getElementById('cad-carteirinha').value),
+                    emergencia: encriptar(document.getElementById('cad-emergencia').value),
+                    responsavel: encriptar(document.getElementById('cad-responsavel').value)
+                };
+
+                if (pacienteEmEdicaoId) {
+                    await updateDoc(doc(db, "pacientes", pacienteEmEdicaoId), dadosParaSalvar);
+                    showToast('Dados do paciente atualizados!', 'success');
+                } else {
+                    dadosParaSalvar.evolucoes = [];
+                    await addDoc(collection(db, "pacientes"), dadosParaSalvar);
+                    showToast('Paciente salvo e criptografado com sucesso!', 'success');
+                }
+            } else {
+                await addDoc(collection(db, "profissionais"), {
+                    ...baseData,
+                    conselho: encriptar(document.getElementById('cad-conselho').value),
+                    registro: encriptar(document.getElementById('cad-num-registro').value),
+                    especialidade: encriptar(document.getElementById('cad-especialidade').value),
+                    rqe: encriptar(document.getElementById('cad-rqe').value),
+                    vinculo: encriptar(document.getElementById('cad-vinculo').value)
+                });
+                showToast('Profissional salvo e criptografado com sucesso!', 'success');
+            }
+
+            modalCadastro.classList.remove('active');
+            e.target.reset();
+            pacienteEmEdicaoId = null; 
+            
+            await carregarPacientes(); 
+            await carregarProfissionais();
+
+        } catch (error) {
+            console.error("Erro ao salvar no Firestore: ", error);
+            showToast('Erro de conexão ao salvar os dados.', 'error');
+        } finally {
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+        }
 
         const baseData = {
             nome: document.getElementById('cad-nome').value,
@@ -580,7 +644,6 @@ export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
 
 export async function carregarPacientes() {
     try {
-        // O Raio-X: Mostra no console qual clínica ele está usando como filtro
         console.log("🔍 Buscando pacientes para a clínica:", clinicaState.sessao.clinicaId);
 
         const q = query(
@@ -589,14 +652,39 @@ export async function carregarPacientes() {
         );
         const querySnapshot = await getDocs(q);
 
-        // Mostra no console quantos pacientes ele conseguiu achar lá no Firebase
-        console.log(`📦 Encontrados: ${querySnapshot.size} pacientes no banco.`);
+        const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
+        
+        // Função para destrancar os dados lidos do banco
+        const decriptar = (textoCripto) => {
+            if (!textoCripto) return '';
+            try {
+                const bytes = CryptoJS.AES.decrypt(textoCripto, chaveSecreta);
+                const original = bytes.toString(CryptoJS.enc.Utf8);
+                return original || textoCripto; // Se falhar (dados antigos), mostra normal
+            } catch(e) {
+                return textoCripto;
+            }
+        };
 
         clinicaState.pacientes = [];
         querySnapshot.forEach((doc) => {
+            const d = doc.data();
             clinicaState.pacientes.push({
-                ...doc.data(),
-                id: String(doc.id)
+                ...d,
+                id: String(doc.id),
+                nome: decriptar(d.nome),
+                cpf: decriptar(d.cpf),
+                rg: decriptar(d.rg),
+                nascimento: decriptar(d.nascimento),
+                mae: decriptar(d.mae),
+                telefone: decriptar(d.telefone),
+                email: decriptar(d.email),
+                sangue: decriptar(d.sangue),
+                alergias: decriptar(d.alergias),
+                convenio: decriptar(d.convenio),
+                carteirinha: decriptar(d.carteirinha),
+                emergencia: decriptar(d.emergencia),
+                responsavel: decriptar(d.responsavel)
             });
         });
 
@@ -618,11 +706,37 @@ export async function carregarProfissionais() {
         );
         const querySnapshot = await getDocs(q);
         
+        const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
+        
+        const decriptar = (textoCripto) => {
+            if (!textoCripto) return '';
+            try {
+                const bytes = CryptoJS.AES.decrypt(textoCripto, chaveSecreta);
+                const original = bytes.toString(CryptoJS.enc.Utf8);
+                return original || textoCripto;
+            } catch(e) {
+                return textoCripto;
+            }
+        };
+
         clinicaState.profissionais = [];
         querySnapshot.forEach((doc) => {
+            const d = doc.data();
             clinicaState.profissionais.push({
-                ...doc.data(),
-                id: String(doc.id)
+                ...d,
+                id: String(doc.id),
+                nome: decriptar(d.nome),
+                cpf: decriptar(d.cpf),
+                rg: decriptar(d.rg),
+                nascimento: decriptar(d.nascimento),
+                mae: decriptar(d.mae),
+                telefone: decriptar(d.telefone),
+                email: decriptar(d.email),
+                conselho: decriptar(d.conselho),
+                registro: decriptar(d.registro),
+                especialidade: decriptar(d.especialidade),
+                rqe: decriptar(d.rqe),
+                vinculo: decriptar(d.vinculo)
             });
         });
         
