@@ -5,7 +5,7 @@ import { atualizarAgenda } from './agenda.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let pacienteAtivoId = null;
-let pacienteEmEdicaoId = null; // Variável nova! Indica quem estamos editando
+let pacienteEmEdicaoId = null; 
 
 export function initPacientes() {
     const modalCadastro = document.getElementById('modal-cadastro');
@@ -13,8 +13,9 @@ export function initPacientes() {
     
     document.getElementById('btn-novo-paciente').addEventListener('click', () => abrirModalCadastro('paciente'));
     document.getElementById('btn-novo-profissional').addEventListener('click', () => abrirModalCadastro('profissional'));
-    document.getElementById('btn-close-cadastro').addEventListener('click', () => { modalCadastro.classList.remove('active');
-        pacienteEmEdicaoId = null; // Garante que a chave desliga se cancelar a ação
+    document.getElementById('btn-close-cadastro').addEventListener('click', () => { 
+        modalCadastro.classList.remove('active');
+        pacienteEmEdicaoId = null; 
     });
 
     function abrirModalCadastro(tipo) {
@@ -56,34 +57,31 @@ export function initPacientes() {
         }
     });
 
+    // ==========================================
+    // SALVAMENTO DE CADASTRO COM CRIPTOGRAFIA
+    // ==========================================
     document.getElementById('form-cadastro').addEventListener('submit', async (e) => {
         e.preventDefault();
-        
         const tipo = tipoCadastro.value;
 
-        // --- TRAVA DE SEGURANÇA PARA PROFISSIONAIS ---
         if (tipo === 'profissional') {
             const conselho = document.getElementById('cad-conselho').value.trim();
             const registro = document.getElementById('cad-num-registro').value.trim();
             if (!conselho || !registro) {
                 showToast('O Conselho (ex: CRM) e o Registro são obrigatórios por lei!', 'warning');
-                return; // Interrompe a função e não salva
+                return; 
             }
         }
-        // ---------------------------------------------
 
         const btnSalvar = e.target.querySelector('button[type="submit"]');
         const textoBotaoOriginal = btnSalvar.innerHTML;
         
-        // Feedback visual enquanto salva na nuvem
-        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando na nuvem...';
+        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
         btnSalvar.disabled = true;
 
-        // FUNÇÃO DE CRIPTOGRAFIA PARA OS DADOS DE CADASTRO
         const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
         const encriptar = (texto) => texto ? CryptoJS.AES.encrypt(texto, chaveSecreta).toString() : '';
 
-        // ÚNICA DECLARAÇÃO DO baseData (CRIPTOGRAFADO)
         const baseData = {
             nome: encriptar(document.getElementById('cad-nome').value),
             cpf: encriptar(document.getElementById('cad-cpf').value),
@@ -144,27 +142,24 @@ export function initPacientes() {
         }
     });
 
-    
-
     document.getElementById('btn-fechar-pep').addEventListener('click', () => {
         document.getElementById('prontuario-ativo').style.display = 'none';
-
         const listaContainer = document.getElementById('lista-pacientes-container');
         if (listaContainer) listaContainer.style.display = 'block';
-
         pacienteAtivoId = null;
         renderizarResumoPacienteAtivo();
     });
 
+    // ==========================================
+    // SALVAMENTO DE EVOLUÇÃO COM CRIPTOGRAFIA
+    // ==========================================
     document.getElementById('form-evolucao').addEventListener('submit', async (e) => {
         e.preventDefault();
         if(!pacienteAtivoId) return;
         
-        // Pega o paciente garantindo que o ID é string
         const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
-        
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoBotaoOriginal = btnSalvar.innerHTML; // <-- NOME CORRIGIDO AQUI
+        const textoBotaoOriginal = btnSalvar.innerHTML; 
         
         btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Assinando...';
         btnSalvar.disabled = true;
@@ -172,13 +167,11 @@ export function initPacientes() {
         const textoProntuario = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
     **Exame Físico:** ${document.getElementById('pep-exame-fisico').value}
     **Diagnóstico:** ${document.getElementById('pep-diagnostico').value || 'N/A'}
-    **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim(); // <-- NOME CORRIGIDO AQUI
+    **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim(); 
 
-        // Criptografia AES (Padrão Militar): Tranca o texto usando o ID da Clínica como chave
         const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
-        const texto = CryptoJS.AES.encrypt(textoProntuario, chaveSecreta).toString();
+        const textoCriptografado = CryptoJS.AES.encrypt(textoProntuario, chaveSecreta).toString();
 
-        // Descobre quem é o médico que está salvando a evolução
         const profId = document.getElementById('pep-profissional').value;
         const profissional = clinicaState.profissionais.find(p => String(p.id) === String(profId));
         
@@ -191,36 +184,27 @@ export function initPacientes() {
 
         const novaEvolucao = {
             data: new Date().toLocaleString('pt-BR'),
-            texto: texto,
+            texto: textoCriptografado,
             assinatura: `Assinado digitalmente por ${profissional.nome} | ${profissional.conselho}: ${profissional.registro}`
         };
 
-        // Garante que o array existe antes de dar o push
         if (!paciente.evolucoes) paciente.evolucoes = [];
         paciente.evolucoes.push(novaEvolucao);
 
         try {
-            // Atualiza apenas o campo de evoluções desse paciente específico na nuvem
             const pacienteRef = doc(db, "pacientes", paciente.id);
-            await updateDoc(pacienteRef, {
-                evolucoes: paciente.evolucoes
-            });
+            await updateDoc(pacienteRef, { evolucoes: paciente.evolucoes });
             
             renderizarEvolucoes(paciente);
-            
-            // LIMPEZA DA TELA APÓS SALVAR
             e.target.reset(); 
             
-            // Se o usuário for médico, o sistema devolve o ID dele pro campo bloqueado automaticamente
             if (clinicaState.sessao.perfil === 'Doutor(a)') {
                 document.getElementById('pep-profissional').value = profId;
             }
-            
             showToast('Evolução salva no Prontuário com sucesso!');
         } catch (error) {
             console.error("Erro ao salvar evolução: ", error);
             showToast('Erro de conexão ao salvar ficha.', 'error');
-            // Reverte a ação na tela se a internet falhar
             paciente.evolucoes.pop(); 
         } finally {
             btnSalvar.innerHTML = textoBotaoOriginal;
@@ -228,8 +212,9 @@ export function initPacientes() {
         }
     });
 
-    // Delegação de eventos para abrir o PEP a partir da tabela
-    // Delegação de eventos da tabela de pacientes (Abrir, Editar, Excluir)
+    // ==========================================
+    // DELEGAÇÃO DE EVENTOS DAS TABELAS
+    // ==========================================
     const patientListBody = document.getElementById('patient-table-body-list');
     if (patientListBody) {
         patientListBody.addEventListener('click', async (e) => {
@@ -237,19 +222,16 @@ export function initPacientes() {
             const btnEditar = e.target.closest('.btn-editar-paciente');
             const btnExcluir = e.target.closest('.btn-excluir-paciente');
 
-            if (btnAbrir) {
-                abrirProntuario(btnAbrir.getAttribute('data-id'));
-            }
+            if (btnAbrir) abrirProntuario(btnAbrir.getAttribute('data-id'));
 
             if (btnExcluir) {
                 const idPac = btnExcluir.getAttribute('data-id');
-                if (confirm('Atenção: Deseja realmente excluir permanentemente este paciente e todo o seu prontuário?')) {
+                if (confirm('Atenção: Deseja excluir permanentemente este paciente?')) {
                     try {
                         await deleteDoc(doc(db, "pacientes", idPac));
                         showToast('Paciente excluído do sistema.', 'success');
                         await carregarPacientes();
                     } catch (error) {
-                        console.error("Erro ao excluir: ", error);
                         showToast('Falha ao excluir paciente.', 'error');
                     }
                 }
@@ -258,15 +240,10 @@ export function initPacientes() {
             if (btnEditar) {
                 const idPac = btnEditar.getAttribute('data-id');
                 const paciente = clinicaState.pacientes.find(p => String(p.id) === String(idPac));
-                
                 if (paciente) {
-                    pacienteEmEdicaoId = paciente.id; // Liga a chave de edição
-                    
-                    // Preenche os campos do formulário magicamente
+                    pacienteEmEdicaoId = paciente.id; 
                     document.getElementById('tipo-cadastro').value = 'paciente';
                     abrirModalCadastro('paciente'); 
-                    
-                    // Pula a etapa de verificação de CPF
                     document.getElementById('step-verificacao-cpf').style.display = 'none';
                     document.getElementById('step-dados-cadastrais').style.display = 'grid';
                     
@@ -288,22 +265,18 @@ export function initPacientes() {
         });
     }
 
-    // Evento para excluir profissional
     const profListBody = document.getElementById('prof-table-body-list');
     if (profListBody) {
         profListBody.addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-excluir-prof');
             if (btn) {
-                const idProfissional = btn.getAttribute('data-id');
-                
-                // Pede confirmação antes de apagar dados do banco
-                if(confirm('Tem certeza que deseja inativar/remover este profissional do sistema?')) {
+                const idProf = btn.getAttribute('data-id');
+                if(confirm('Deseja remover este profissional do sistema?')) {
                     try {
-                        await deleteDoc(doc(db, "profissionais", idProfissional));
-                        showToast('Profissional removido com sucesso.', 'success');
-                        await carregarProfissionais(); // Recarrega a tabela sem o excluído
+                        await deleteDoc(doc(db, "profissionais", idProf));
+                        showToast('Profissional removido.', 'success');
+                        await carregarProfissionais(); 
                     } catch(error) {
-                        console.error("Erro ao excluir", error);
                         showToast('Falha ao remover profissional.', 'error');
                     }
                 }
@@ -311,113 +284,72 @@ export function initPacientes() {
         });
     }
 
-
-    // === LÓGICA DE ABAS DO PRONTUÁRIO ===
+    // ==========================================
+    // ABAS DO PRONTUÁRIO
+    // ==========================================
     const tabBtns = document.querySelectorAll('.tab-btn');
     if (tabBtns.length > 0) {
         tabBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
-                // Remove o ativo de todas as abas
                 tabBtns.forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                // Ativa só a aba que clicou
                 e.currentTarget.classList.add('active');
-                const targetId = e.currentTarget.getAttribute('data-tab');
-                document.getElementById(targetId).classList.add('active');
+                document.getElementById(e.currentTarget.getAttribute('data-tab')).classList.add('active');
             });
         });
     }
 
-   // === LÓGICA DO RECEITUÁRIO E IMPRESSÃO ===
     const btnImprimir = document.getElementById('btn-imprimir-receita');
     if (btnImprimir) {
         btnImprimir.addEventListener('click', () => {
             const textoReceita = document.getElementById('texto-receita').value;
             const tipoDoc = document.getElementById('tipo-documento-impressao').value;
             
-            if(!textoReceita.trim()) {
-                return showToast('Por favor, digite o conteúdo do documento antes de imprimir.', 'warning');
-            }
+            if(!textoReceita.trim()) return showToast('Digite o conteúdo do documento.', 'warning');
 
             const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
             const profId = document.getElementById('pep-profissional').value;
             const profissional = clinicaState.profissionais.find(p => String(p.id) === String(profId));
 
-            if (!profissional) {
-                return showToast('Selecione o seu nome (Profissional Responsável) na aba de Nova Evolução primeiro.', 'error');
-            }
+            if (!profissional) return showToast('Selecione o Profissional Responsável.', 'error');
 
-            // Injeta os dados dinamicamente no molde invisível
             document.getElementById('print-tipo-doc').textContent = tipoDoc;
             document.getElementById('print-nome-paciente').textContent = paciente.nome;
-            
-            // Tratamento de dados extras do paciente
-            const dataNasc = paciente.nascimento ? paciente.nascimento.split('-').reverse().join('/') : 'Não informada';
-            document.getElementById('print-nasc-paciente').textContent = dataNasc;
-            document.getElementById('print-cpf-paciente').textContent = paciente.cpf || 'Não informado';
-            
+            document.getElementById('print-nasc-paciente').textContent = paciente.nascimento ? paciente.nascimento.split('-').reverse().join('/') : 'Não inf.';
+            document.getElementById('print-cpf-paciente').textContent = paciente.cpf || 'Não inf.';
             document.getElementById('print-data').textContent = new Date().toLocaleDateString('pt-BR');
             document.getElementById('print-conteudo-receita').textContent = textoReceita;
-            
-            // Assinatura
             document.getElementById('print-medico-nome').textContent = profissional.nome;
             document.getElementById('print-medico-registro').textContent = `${profissional.conselho}: ${profissional.registro}`;
 
-            // Abre a janela do sistema operacional para imprimir
             window.print();
         });
     }
 
-    // === MOTOR DE BUSCA DE PACIENTES ===
+    // ==========================================
+    // BUSCA DE PACIENTES
+    // ==========================================
     const inputBusca = document.getElementById('search-paciente');
     const btnBuscar = document.getElementById('btn-buscar-paciente');
 
     function executarBusca() {
         if (!inputBusca) return;
-        
         const termo = inputBusca.value.toLowerCase().trim();
-        
-        // Cria uma versão do termo contendo APENAS números (ignora os pontos e traços que o usuário não digitou)
         const termoApenasNumeros = termo.replace(/\D/g, ''); 
         
-        // Se o campo estiver vazio, mostra todo mundo
-        if (termo === '') {
-            atualizarTabelaPacientes(clinicaState.pacientes);
-            return;
-        }
+        if (termo === '') return atualizarTabelaPacientes(clinicaState.pacientes);
 
-        // Filtra a lista comparando o termo com o Nome ou o CPF
         const pacientesFiltrados = clinicaState.pacientes.filter(p => {
             const nome = p.nome ? p.nome.toLowerCase() : '';
-            
-            // Pega o CPF do banco e também tira os pontos e traços dele
-            const cpfOriginal = p.cpf ? p.cpf : '';
-            const cpfApenasNumeros = cpfOriginal.replace(/\D/g, '');
-
-            // Regra 1: Bate com alguma parte do nome?
-            const achouNoNome = nome.includes(termo);
-            
-            // Regra 2: Bate com o CPF? (Só compara se o usuário digitou algum número)
-            const achouNoCpf = (termoApenasNumeros !== '' && cpfApenasNumeros.includes(termoApenasNumeros));
-
-            return achouNoNome || achouNoCpf;
+            const cpfApenasNumeros = (p.cpf ? p.cpf : '').replace(/\D/g, '');
+            return nome.includes(termo) || (termoApenasNumeros !== '' && cpfApenasNumeros.includes(termoApenasNumeros));
         });
 
-        // Atualiza a tabela apenas com quem passou no filtro
         atualizarTabelaPacientes(pacientesFiltrados);
     }
 
-    // Dispara a busca ao clicar no botão
-    if (btnBuscar) {
-        btnBuscar.addEventListener('click', executarBusca);
-    }
-
-    // Dispara a busca em tempo real enquanto o usuário digita
-    if (inputBusca) {
-        inputBusca.addEventListener('keyup', executarBusca);
-    }
-
+    if (btnBuscar) btnBuscar.addEventListener('click', executarBusca);
+    if (inputBusca) inputBusca.addEventListener('keyup', executarBusca);
 }
 
 export function abrirProntuario(idPaciente) {
@@ -431,13 +363,11 @@ export function abrirProntuario(idPaciente) {
         
         pacienteAtivoId = paciente.id;
         
-        // === TRAVA DO DOUTOR: ASSINATURA DO PRONTUÁRIO ===
         const selProf = document.getElementById('pep-profissional');
         if (selProf) {
             let profsPermitidos = clinicaState.profissionais;
             let travaSelect = false;
 
-            // Se for médico, filtra para achar apenas ele mesmo
             if (clinicaState.sessao.perfil === 'Doutor(a)') {
                 profsPermitidos = clinicaState.profissionais.filter(p => p.nome.trim().toLowerCase() === clinicaState.sessao.nome.trim().toLowerCase());
                 travaSelect = true;
@@ -446,11 +376,10 @@ export function abrirProntuario(idPaciente) {
             selProf.innerHTML = '<option value="" disabled selected>Selecione para assinar...</option>' + 
                 profsPermitidos.map(p => `<option value="${p.id}">${p.nome} (${p.conselho}: ${p.registro})</option>`).join('');
             
-            // Se for médico, já seleciona o nome dele automaticamente e bloqueia o botão!
             if (travaSelect && profsPermitidos.length > 0) {
                 selProf.value = profsPermitidos[0].id;
-                selProf.style.pointerEvents = 'none'; // Trava o clique
-                selProf.style.backgroundColor = '#e2e8f0'; // Cor de bloqueado
+                selProf.style.pointerEvents = 'none'; 
+                selProf.style.backgroundColor = '#e2e8f0'; 
             } else {
                 selProf.style.pointerEvents = 'auto';
                 selProf.style.backgroundColor = '';
@@ -460,7 +389,6 @@ export function abrirProntuario(idPaciente) {
         renderizarEvolucoes(paciente);
         renderizarResumoPacienteAtivo();
         
-        // === TRAVA VISUAL LGPD ===
         const areaHistorico = document.querySelector('.pep-historico'); 
         const formEvolucao = document.querySelector('.pep-nova-evolucao'); 
         
@@ -471,7 +399,6 @@ export function abrirProntuario(idPaciente) {
             if(areaHistorico) areaHistorico.style.display = 'block';
             if(formEvolucao) formEvolucao.style.display = 'block';
         }
-        // =========================
 
         const listaContainer = document.getElementById('lista-pacientes-container');
         if (listaContainer) listaContainer.style.display = 'none';
@@ -486,19 +413,14 @@ function renderizarEvolucoes(paciente) {
     
     container.innerHTML = paciente.evolucoes.slice().reverse().map(evo => {
         let textoDescriptografado = "";
-        
         try {
-            // Tenta destrancar o texto usando a mesma chave secreta
             const bytes = CryptoJS.AES.decrypt(evo.texto, chaveSecreta);
             textoDescriptografado = bytes.toString(CryptoJS.enc.Utf8);
-            
-            // Sistema Anti-Quebra: Se falhar (ex: consultas antigas que não foram criptografadas), usa o texto puro
             if (!textoDescriptografado) textoDescriptografado = evo.texto;
         } catch (e) {
             textoDescriptografado = evo.texto; 
         }
 
-        // Formata os textos em negrito e quebras de linha
         let textoFormatado = escapeHTML(textoDescriptografado)
             .replace(/\n/g, '<br>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -516,26 +438,19 @@ function renderizarEvolucoes(paciente) {
 
 export function renderizarResumoPacienteAtivo() {
     if (!pacienteAtivoId) return;
-    
     const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
     if (!paciente) return;
     
-    // Preenche o novo Cabeçalho Premium
     const elNome = document.getElementById('pep-nome-paciente');
     const elDados = document.getElementById('pep-dados-basicos');
     const elConvenio = document.getElementById('pep-convenio');
     const elAlergias = document.getElementById('pep-alergias');
 
     if (elNome) elNome.textContent = paciente.nome;
-    
-    // Formata os dados básicos
     const dataNasc = paciente.nascimento ? paciente.nascimento.split('-').reverse().join('/') : 'Não inf.';
     if (elDados) elDados.textContent = `CPF: ${paciente.cpf} | Nasc: ${dataNasc} | Tel: ${paciente.telefone || 'Não inf.'}`;
     
-    // Adiciona ícones e cores nas badges
-    if (elConvenio) {
-        elConvenio.innerHTML = `<i class="fa-solid fa-address-card"></i> ${paciente.convenio || 'Particular'}`;
-    }
+    if (elConvenio) elConvenio.innerHTML = `<i class="fa-solid fa-address-card"></i> ${paciente.convenio || 'Particular'}`;
     
     if (elAlergias) {
         if (paciente.alergias) {
@@ -551,7 +466,6 @@ export function renderizarResumoPacienteAtivo() {
 export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
     const patientListBody = document.getElementById('patient-table-body-list');
     if (patientListBody) {
-        // AQUI ESTÁ A MÁGICA: Trocamos 'clinicaState.pacientes.map' por 'lista.map'
         patientListBody.innerHTML = lista.map(p => 
             `<tr>
                 <td><strong>${p.nome}</strong></td>
@@ -577,11 +491,11 @@ export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
     renderizarResumoPacienteAtivo();
 }
 
-
+// ==========================================
+// LEITURA DE DADOS COM DESCRIPTOGRAFIA
+// ==========================================
 export async function carregarPacientes() {
     try {
-        console.log("🔍 Buscando pacientes para a clínica:", clinicaState.sessao.clinicaId);
-
         const q = query(
             collection(db, "pacientes"),
             where("clinicaId", "==", clinicaState.sessao.clinicaId)
@@ -590,13 +504,12 @@ export async function carregarPacientes() {
 
         const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
         
-        // Função para destrancar os dados lidos do banco
         const decriptar = (textoCripto) => {
             if (!textoCripto) return '';
             try {
                 const bytes = CryptoJS.AES.decrypt(textoCripto, chaveSecreta);
                 const original = bytes.toString(CryptoJS.enc.Utf8);
-                return original || textoCripto; // Se falhar (dados antigos), mostra normal
+                return original || textoCripto; 
             } catch(e) {
                 return textoCripto;
             }
@@ -625,17 +538,13 @@ export async function carregarPacientes() {
         });
 
         atualizarTabelaPacientes();
-
     } catch (error) {
-        console.error("❌ Erro grave ao buscar pacientes: ", error);
         showToast('Erro ao carregar lista de pacientes.', 'error');
     }
 }
 
 export async function carregarProfissionais() {
     try {
-        console.log("🔍 Buscando profissionais para a clínica:", clinicaState.sessao.clinicaId);
-        
         const q = query(
             collection(db, "profissionais"), 
             where("clinicaId", "==", clinicaState.sessao.clinicaId)
@@ -678,7 +587,6 @@ export async function carregarProfissionais() {
         
         atualizarTabelaProfissionais();
     } catch (error) {
-        console.error("❌ Erro ao buscar profissionais: ", error);
         showToast('Erro ao carregar lista de profissionais.', 'error');
     }
 }
