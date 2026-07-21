@@ -169,10 +169,14 @@ export function initPacientes() {
         btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Assinando...';
         btnSalvar.disabled = true;
 
-        const texto = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
+        const textoOriginal = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
     **Exame Físico:** ${document.getElementById('pep-exame-fisico').value}
     **Diagnóstico:** ${document.getElementById('pep-diagnostico').value || 'N/A'}
     **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim();
+
+        // Criptografia AES (Padrão Militar): Tranca o texto usando o ID da Clínica como chave
+        const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
+        const texto = CryptoJS.AES.encrypt(textoOriginal, chaveSecreta).toString();
 
         // Descobre quem é o médico que está salvando a evolução
         const profId = document.getElementById('pep-profissional').value;
@@ -478,10 +482,24 @@ export function abrirProntuario(idPaciente) {
 
 function renderizarEvolucoes(paciente) {
     const container = document.getElementById('pep-timeline');
+    const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
     
     container.innerHTML = paciente.evolucoes.slice().reverse().map(evo => {
+        let textoDescriptografado = "";
+        
+        try {
+            // Tenta destrancar o texto usando a mesma chave secreta
+            const bytes = CryptoJS.AES.decrypt(evo.texto, chaveSecreta);
+            textoDescriptografado = bytes.toString(CryptoJS.enc.Utf8);
+            
+            // Sistema Anti-Quebra: Se falhar (ex: consultas antigas que não foram criptografadas), usa o texto puro
+            if (!textoDescriptografado) textoDescriptografado = evo.texto;
+        } catch (e) {
+            textoDescriptografado = evo.texto; 
+        }
+
         // Formata os textos em negrito e quebras de linha
-        let textoFormatado = escapeHTML(evo.texto)
+        let textoFormatado = escapeHTML(textoDescriptografado)
             .replace(/\n/g, '<br>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             
