@@ -164,19 +164,19 @@ export function initPacientes() {
         const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
         
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoOriginal = btnSalvar.innerHTML;
+        const textoBotaoOriginal = btnSalvar.innerHTML; // <-- NOME CORRIGIDO AQUI
         
         btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Assinando...';
         btnSalvar.disabled = true;
 
-        const textoOriginal = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
+        const textoProntuario = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
     **Exame Físico:** ${document.getElementById('pep-exame-fisico').value}
     **Diagnóstico:** ${document.getElementById('pep-diagnostico').value || 'N/A'}
-    **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim();
+    **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim(); // <-- NOME CORRIGIDO AQUI
 
         // Criptografia AES (Padrão Militar): Tranca o texto usando o ID da Clínica como chave
         const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
-        const texto = CryptoJS.AES.encrypt(textoOriginal, chaveSecreta).toString();
+        const texto = CryptoJS.AES.encrypt(textoProntuario, chaveSecreta).toString();
 
         // Descobre quem é o médico que está salvando a evolução
         const profId = document.getElementById('pep-profissional').value;
@@ -184,7 +184,7 @@ export function initPacientes() {
         
         if (!profissional) {
             showToast('Selecione um profissional para assinar a ficha.', 'warning');
-            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.innerHTML = textoBotaoOriginal;
             btnSalvar.disabled = false;
             return;
         }
@@ -208,7 +208,7 @@ export function initPacientes() {
             
             renderizarEvolucoes(paciente);
             
-            // LIMPEZA E CORREÇÃO DO BUG AQUI:
+            // LIMPEZA DA TELA APÓS SALVAR
             e.target.reset(); 
             
             // Se o usuário for médico, o sistema devolve o ID dele pro campo bloqueado automaticamente
@@ -223,7 +223,7 @@ export function initPacientes() {
             // Reverte a ação na tela se a internet falhar
             paciente.evolucoes.pop(); 
         } finally {
-            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.innerHTML = textoBotaoOriginal;
             btnSalvar.disabled = false;
         }
     });
