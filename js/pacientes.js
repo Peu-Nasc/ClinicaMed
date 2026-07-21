@@ -73,9 +73,8 @@ export function initPacientes() {
         // ---------------------------------------------
 
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoOriginal = btnSalvar.innerHTML;
+        const textoBotaoOriginal = btnSalvar.innerHTML;
         
-        // Feedback visual enquanto salva na nuvem
         // Feedback visual enquanto salva na nuvem
         btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando na nuvem...';
         btnSalvar.disabled = true;
@@ -84,6 +83,7 @@ export function initPacientes() {
         const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
         const encriptar = (texto) => texto ? CryptoJS.AES.encrypt(texto, chaveSecreta).toString() : '';
 
+        // ÚNICA DECLARAÇÃO DO baseData (CRIPTOGRAFADO)
         const baseData = {
             nome: encriptar(document.getElementById('cad-nome').value),
             cpf: encriptar(document.getElementById('cad-cpf').value),
@@ -139,71 +139,7 @@ export function initPacientes() {
             console.error("Erro ao salvar no Firestore: ", error);
             showToast('Erro de conexão ao salvar os dados.', 'error');
         } finally {
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-        }
-
-        const baseData = {
-            nome: document.getElementById('cad-nome').value,
-            cpf: document.getElementById('cad-cpf').value,
-            rg: document.getElementById('cad-rg').value,
-            nascimento: document.getElementById('cad-nascimento').value,
-            mae: document.getElementById('cad-mae').value,
-            telefone: document.getElementById('cad-tel').value,
-            email: document.getElementById('cad-email').value,
-            dataCadastro: new Date().toISOString(),
-            // CARIMBO DE SEGURANÇA:
-            clinicaId: clinicaState.sessao.clinicaId 
-        };
-
-        try {
-            if (tipo === 'paciente') {
-                const dadosParaSalvar = {
-                    ...baseData,
-                    sangue: document.getElementById('cad-sangue').value,
-                    alergias: document.getElementById('cad-alergias').value,
-                    convenio: document.getElementById('cad-convenio').value || 'Particular',
-                    carteirinha: document.getElementById('cad-carteirinha').value,
-                    emergencia: document.getElementById('cad-emergencia').value,
-                    responsavel: document.getElementById('cad-responsavel').value
-                };
-
-                if (pacienteEmEdicaoId) {
-                    // Modo Edição (Atualiza na nuvem)
-                    await updateDoc(doc(db, "pacientes", pacienteEmEdicaoId), dadosParaSalvar);
-                    showToast('Dados do paciente atualizados!', 'success');
-                } else {
-                    // Modo Novo Cadastro (Cria na nuvem mantendo as evoluções vazias no início)
-                    dadosParaSalvar.evolucoes = [];
-                    await addDoc(collection(db, "pacientes"), dadosParaSalvar);
-                    showToast('Paciente salvo no banco de dados!', 'success');
-                }
-            } else {
-                // (Mantenha o código original de profissionais aqui)
-                await addDoc(collection(db, "profissionais"), {
-                    ...baseData,
-                    conselho: document.getElementById('cad-conselho').value,
-                    registro: document.getElementById('cad-num-registro').value,
-                    especialidade: document.getElementById('cad-especialidade').value,
-                    rqe: document.getElementById('cad-rqe').value,
-                    vinculo: document.getElementById('cad-vinculo').value
-                });
-                showToast('Profissional salvo no banco de dados!', 'success');
-            }
-
-            modalCadastro.classList.remove('active');
-            e.target.reset();
-            pacienteEmEdicaoId = null; // Desliga a chave de edição ao terminar!
-            
-            await carregarPacientes(); 
-            await carregarProfissionais();
-
-        } catch (error) {
-            console.error("Erro ao salvar no Firestore: ", error);
-            showToast('Erro de conexão ao salvar os dados.', 'error');
-        } finally {
-            // Restaura o botão
-            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.innerHTML = textoBotaoOriginal;
             btnSalvar.disabled = false;
         }
     });
