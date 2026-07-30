@@ -346,17 +346,17 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
                 <strong>${l.vinculo}</strong><br>
                 <small style="color: var(--text-light);">${l.tipo}</small>
             </td>
-            <td><i class="fa-solid ${iconPag}" style="color: var(--primary-light);"></i> ${l.pagamento}</td>
+            <td><i class="fa-solid ${iconPag} icon-primary"></i> ${l.pagamento}</td>
             <td><span class="badge ${corStatus}">${l.status}</span></td>
-            <td class="${isEntrada ? 'positivo' : 'negativo'}" style="font-weight: bold; font-size: 1.1rem;">
+            <td class="${isEntrada ? 'positivo' : 'negativo'} valor-lancamento">
                 ${isEntrada ? '+' : '-'} ${formatCurrency(l.valor)}
             </td>
             <td>
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn-action btn-editar-fin" data-id="${l.id}" style="color: var(--primary-light); border-color: var(--primary-light);" title="Editar">
+                <div class="row-actions">
+                    <button class="btn-action btn-edit btn-editar-fin" data-id="${l.id}" title="Editar">
                         <i class="fa-solid fa-pen"></i>
                     </button>
-                    <button class="btn-action btn-excluir-fin" data-id="${l.id}" style="color: #dc3545; border-color: #dc3545;" title="Excluir">
+                    <button class="btn-action btn-delete btn-excluir-fin" data-id="${l.id}" title="Excluir">
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </div>

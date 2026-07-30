@@ -473,14 +473,14 @@ export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
                 <td>${p.convenio}</td>
                 <td style="color:red">${p.alergias || '-'}</td>
                 <td>
-                    <div style="display: flex; gap: 8px;">
+                    <div class="row-actions">
                         <button class="btn-action btn-abrir-prontuario" data-id="${p.id}" title="Acessar Ficha">
                             <i class="fa-regular fa-folder-open"></i>
                         </button>
-                        <button class="btn-action btn-editar-paciente" data-id="${p.id}" style="color: var(--primary-light); border-color: var(--primary-light);" title="Editar Dados">
+                        <button class="btn-action btn-edit btn-editar-paciente" data-id="${p.id}" title="Editar Dados">
                             <i class="fa-solid fa-pen"></i>
                         </button>
-                        <button class="btn-action btn-excluir-paciente" data-id="${p.id}" style="color: #dc3545; border-color: #dc3545;" title="Excluir Cadastro">
+                        <button class="btn-action btn-delete btn-excluir-paciente" data-id="${p.id}" title="Excluir Cadastro">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
@@ -600,7 +600,7 @@ export function atualizarTabelaProfissionais() {
                 <td>${p.especialidade}</td>
                 <td>${p.conselho} ${p.registro}</td>
                 <td>
-                    <button class="btn-action btn-excluir-prof" data-id="${p.id}" style="color: #dc3545; border-color: #dc3545;">
+                    <button class="btn-action btn-delete btn-excluir-prof" data-id="${p.id}">
                         <i class="fa-solid fa-trash"></i> Excluir
                     </button>
                 </td>

@@ -212,13 +212,13 @@ export function atualizarAgenda() {
                     slot.dataset.status = statusAtual; 
                     
                     slot.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div class="appt-slot-header">
                             <p class="patient-name">${agendamento.pacNome}</p>
-                            <button class="btn-cancelar-consulta" data-id="${agendamento.id}" title="Cancelar Horário" style="color: #dc3545; background: none; border: none; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+                            <button class="appt-cancel-btn btn-cancelar-consulta" data-id="${agendamento.id}" title="Cancelar Horário"><i class="fa-solid fa-xmark"></i></button>
                         </div>
-                        <span class="appointment-type" style="margin-bottom: 5px; display: block;">${agendamento.tipo || 'Consulta'}</span>
+                        <span class="appointment-type">${agendamento.tipo || 'Consulta'}</span>
                         
-                        <select class="select-status-agenda input-premium" data-id="${agendamento.id}" style="font-size: 0.75rem; padding: 2px 5px; height: 26px; cursor: pointer;">
+                        <select class="select-status-agenda input-premium" data-id="${agendamento.id}">
                             <option value="aguardando" ${statusAtual === 'aguardando' ? 'selected' : ''}>⏳ Aguardando</option>
                             <option value="confirmado" ${statusAtual === 'confirmado' ? 'selected' : ''}>✅ Confirmado (Chegou)</option>
                             <option value="em-atendimento" ${statusAtual === 'em-atendimento' ? 'selected' : ''}>👨‍⚕️ Em Atendimento</option>

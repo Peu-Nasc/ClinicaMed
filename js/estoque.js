@@ -103,9 +103,6 @@ export function atualizarTabelaEstoque(filtro = '') {
         else if (isVencendo) statusBadge = `<span class="badge warning">Vence em ${diasVenc} dias</span>`;
         else if (isBaixo) statusBadge = '<span class="badge warning">Estoque Baixo</span>';
 
-        // Definindo cor da quantidade
-        const qtdColor = isBaixo ? 'color: #dc3545; font-weight: bold;' : 'color: #1B262C; font-weight: 600;';
-
         return `<tr>
             <td>
                 <strong>${i.nome}</strong><br>
@@ -117,20 +114,20 @@ export function atualizarTabelaEstoque(filtro = '') {
             </td>
             <td>
                 <!-- CONTROLES RÁPIDOS DE QUANTIDADE -->
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                    <button type="button" class="btn-action btn-diminuir-qtd" data-id="${i.id}" style="padding: 2px 8px; border-radius: 4px; font-size: 1.1rem; line-height: 1; border-color: #6C757D; color: #6C757D;" title="Remover 1 unidade">-</button>
-                    <span style="${qtdColor} font-size: 1.1rem; min-width: 40px; text-align: center;">${i.qtd}</span>
-                    <button type="button" class="btn-action btn-aumentar-qtd" data-id="${i.id}" style="padding: 2px 8px; border-radius: 4px; font-size: 1.1rem; line-height: 1; border-color: var(--primary-light); color: var(--primary-light);" title="Adicionar 1 unidade">+</button>
+                <div class="qty-control-row">
+                    <button type="button" class="btn-action qty-btn decrease btn-diminuir-qtd" data-id="${i.id}" title="Remover 1 unidade">-</button>
+                    <span class="qty-value ${isBaixo ? 'low' : ''}">${i.qtd}</span>
+                    <button type="button" class="btn-action qty-btn increase btn-aumentar-qtd" data-id="${i.id}" title="Adicionar 1 unidade">+</button>
                 </div>
-                <small style="color:#6C757D; font-weight:normal;">Mínimo Ideal: ${i.min}</small>
+                <small class="qty-min-note">Mínimo Ideal: ${i.min}</small>
             </td>
             <td>${statusBadge}</td>
             <td>
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn-action btn-editar-est" data-id="${i.id}" style="color: var(--primary-light); border-color: var(--primary-light);" title="Editar Lote">
+                <div class="row-actions">
+                    <button class="btn-action btn-edit btn-editar-est" data-id="${i.id}" title="Editar Lote">
                         <i class="fa-solid fa-pen"></i>
                     </button>
-                    <button class="btn-action btn-excluir-est" data-id="${i.id}" style="color: #dc3545; border-color: #dc3545;" title="Excluir Item">
+                    <button class="btn-action btn-delete btn-excluir-est" data-id="${i.id}" title="Excluir Item">
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </div>
