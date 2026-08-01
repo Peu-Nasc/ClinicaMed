@@ -17,6 +17,20 @@ export function escapeHTML(str) {
     }[tag] || tag));
 }
 
+// Renderiza um grid de cards de indicador (usado no dashboard, financeiro e estoque)
+// cards: [{ id, label, initial, variant: 'success'|'danger'|'warning'|'primary', valueClass, compact }]
+export function renderCardGrid(containerId, cards) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = cards.map(c => `
+        <div class="card card-info${c.variant ? ' card-' + c.variant : ''}${c.compact ? ' card-compact' : ''}">
+            <h3>${c.label}</h3>
+            <p class="big-number${c.valueClass ? ' ' + c.valueClass : ''}" id="${c.id}">${c.initial ?? ''}</p>
+        </div>
+    `).join('');
+}
+
 // Inicialização das máscaras do IMask
 export function initMasks() {
     const maskOptions = {

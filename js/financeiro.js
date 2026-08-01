@@ -1,10 +1,25 @@
 import { clinicaState } from './state.js';
-import { formatCurrency, showToast } from './Ferramentas.js';
+import { formatCurrency, showToast, renderCardGrid } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let lancamentoEmEdicaoId = null;
 
 export function initFinanceiro() {
+    // Monta os cards dos dois mini-dashboards controlados por este módulo
+    // (Performance Financeira do Dashboard principal + Livro Caixa)
+    renderCardGrid('dash-mini-dash', [
+        { id: 'dash-receitas', label: 'Receitas Liquidadas', initial: 'R$ 0,00', variant: 'success', valueClass: 'positivo' },
+        { id: 'dash-despesas', label: 'Despesas / Custos', initial: 'R$ 0,00', variant: 'danger', valueClass: 'negativo' },
+        { id: 'dash-glosas', label: 'Glosas Médicas', initial: 'R$ 0,00', variant: 'warning', valueClass: 'warning' },
+        { id: 'dash-lucro', label: 'Lucro Líquido (DRE)', initial: 'R$ 0,00', variant: 'primary', valueClass: 'total' }
+    ]);
+
+    renderCardGrid('fin-mini-dash', [
+        { id: 'fin-stat-receitas', label: 'Entradas (Receitas)', initial: 'R$ 0,00', variant: 'success', valueClass: 'positivo', compact: true },
+        { id: 'fin-stat-despesas', label: 'Saídas (Despesas)', initial: 'R$ 0,00', variant: 'danger', valueClass: 'negativo', compact: true },
+        { id: 'fin-stat-saldo', label: 'Saldo do Filtro Atual', initial: 'R$ 0,00', variant: 'primary', valueClass: 'total', compact: true }
+    ]);
+
     const modalFinanceiro = document.getElementById('modal-financeiro');
     
     document.getElementById('btn-abrir-modal-financeiro').addEventListener('click', () => {

@@ -4,6 +4,15 @@ import { db, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, wher
 
 const appointmentTimes = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
+// Retorna o bloqueio (folga/indisponibilidade) que cobre esse profissional+data+horário, se existir
+function obterBloqueio(profId, data, hora) {
+    return clinicaState.agenda.bloqueios.find(b => {
+        if (String(b.profId) !== String(profId) || b.data !== data) return false;
+        if (b.tipo === 'dia_inteiro') return true;
+        return hora >= b.horaInicio && hora <= b.horaFim;
+    });
+}
+
 export function initAgenda() {
     const modalAgenda = document.getElementById('modal-agendamento');
     const inputDataAgenda = document.getElementById('data-agenda');
@@ -16,6 +25,81 @@ export function initAgenda() {
     
     inputDataAgenda.addEventListener('change', atualizarAgenda);
     filtroProfissional.addEventListener('change', atualizarAgenda);
+
+    // ==========================================
+    // BLOQUEIO DE HORÁRIO / FOLGA
+    // ==========================================
+    const modalBloqueio = document.getElementById('modal-bloqueio');
+    const selectTipoBloqueio = document.getElementById('bloqueio-tipo');
+    const grupoHorarioEspecifico = document.getElementById('bloqueio-horario-especifico-group');
+
+    document.getElementById('btn-novo-bloqueio').addEventListener('click', () => abrirModalBloqueio());
+    document.getElementById('btn-close-bloqueio').addEventListener('click', () => modalBloqueio.classList.remove('active'));
+
+    selectTipoBloqueio.addEventListener('change', (e) => {
+        grupoHorarioEspecifico.style.display = e.target.value === 'horario' ? 'grid' : 'none';
+    });
+
+    document.getElementById('form-bloqueio').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const btnSalvar = e.target.querySelector('button[type="submit"]');
+        const textoOriginal = btnSalvar.innerHTML;
+        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Bloqueando...';
+        btnSalvar.disabled = true;
+
+        const profId = document.getElementById('bloqueio-profissional').value;
+        const data = document.getElementById('bloqueio-data').value;
+        const tipo = selectTipoBloqueio.value;
+        const horaInicio = tipo === 'horario' ? document.getElementById('bloqueio-hora-inicio').value : null;
+        const horaFim = tipo === 'horario' ? document.getElementById('bloqueio-hora-fim').value : null;
+
+        if (tipo === 'horario' && horaInicio > horaFim) {
+            showToast('O horário de início não pode ser depois do horário de fim.', 'error');
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+            return;
+        }
+
+        // Impede bloquear em cima de consulta já marcada
+        const conflito = clinicaState.agenda.agendamentos.some(a => {
+            if (a.profId !== String(profId) || a.data !== data) return false;
+            if (tipo === 'dia_inteiro') return true;
+            return a.hora >= horaInicio && a.hora <= horaFim;
+        });
+
+        if (conflito) {
+            showToast('Já existe consulta marcada nesse período. Cancele a consulta antes de bloquear o horário.', 'error');
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+            return;
+        }
+
+        try {
+            await addDoc(collection(db, "bloqueios_agenda"), {
+                profId: String(profId),
+                data,
+                tipo,
+                horaInicio,
+                horaFim,
+                motivo: document.getElementById('bloqueio-motivo').value,
+                clinicaId: clinicaState.sessao.clinicaId
+            });
+
+            modalBloqueio.classList.remove('active');
+            e.target.reset();
+            grupoHorarioEspecifico.style.display = 'none';
+            showToast('Horário bloqueado com sucesso.', 'success');
+
+            await carregarBloqueios();
+        } catch (error) {
+            console.error("Erro ao bloquear horário: ", error);
+            showToast('Falha de conexão ao bloquear horário.', 'error');
+        } finally {
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+        }
+    });
 
     document.getElementById('form-agendamento').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -43,6 +127,14 @@ export function initAgenda() {
             btnSalvar.innerHTML = textoOriginal;
             btnSalvar.disabled = false;
             return; 
+        }
+
+        const bloqueio = obterBloqueio(profId, dataAgendamento, horaAgendamento);
+        if (bloqueio) {
+            showToast('Este horário está bloqueado (folga/indisponibilidade) para este profissional.', 'error');
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+            return;
         }
 
         try {
@@ -86,6 +178,22 @@ export function initAgenda() {
                     } catch (error) {
                         console.error("Erro ao cancelar: ", error);
                         showToast('Erro ao remover agendamento.', 'error');
+                    }
+                }
+            }
+
+            const btnRemoverBloqueio = e.target.closest('.btn-remover-bloqueio');
+            if (btnRemoverBloqueio) {
+                e.stopPropagation();
+                if (confirm('Deseja remover este bloqueio e liberar o horário?')) {
+                    const idBloqueio = btnRemoverBloqueio.getAttribute('data-id');
+                    try {
+                        await deleteDoc(doc(db, "bloqueios_agenda", idBloqueio));
+                        showToast('Bloqueio removido.', 'success');
+                        await carregarBloqueios();
+                    } catch (error) {
+                        console.error("Erro ao remover bloqueio: ", error);
+                        showToast('Erro ao remover bloqueio.', 'error');
                     }
                 }
             }
@@ -143,6 +251,26 @@ export function abrirModalAgendamento(hora = '', profId = '', data = '') {
     if(profId) selProf.value = profId;
     
     modalAgenda.classList.add('active');
+}
+
+export function abrirModalBloqueio() {
+    const modalBloqueio = document.getElementById('modal-bloqueio');
+    const selProf = document.getElementById('bloqueio-profissional');
+    const inputDataAgenda = document.getElementById('data-agenda');
+
+    // === TRAVA DO DOUTOR: SÓ PODE BLOQUEAR A PRÓPRIA AGENDA ===
+    let profsPermitidos = clinicaState.profissionais;
+    if (clinicaState.sessao.perfil === 'Doutor(a)') {
+        profsPermitidos = clinicaState.profissionais.filter(p => p.nome.trim().toLowerCase() === clinicaState.sessao.nome.trim().toLowerCase());
+    }
+
+    selProf.innerHTML = profsPermitidos.map(p => `<option value="${p.id}">${p.nome} (${p.especialidade})</option>`).join('');
+
+    document.getElementById('bloqueio-data').value = inputDataAgenda.value;
+    document.getElementById('bloqueio-tipo').value = 'dia_inteiro';
+    document.getElementById('bloqueio-horario-especifico-group').style.display = 'none';
+
+    modalBloqueio.classList.add('active');
 }
 
 export function atualizarAgenda() {
@@ -225,9 +353,21 @@ export function atualizarAgenda() {
                         </select>
                     `;
             } else {
-                slot.className = 'appointment-slot empty';
-                slot.textContent = 'Horário Livre';
-                slot.addEventListener('click', () => abrirModalAgendamento(hora, prof.id, dataSelecionada));
+                const bloqueio = obterBloqueio(prof.id, dataSelecionada, hora);
+                if (bloqueio) {
+                    slot.className = 'appointment-slot blocked';
+                    slot.innerHTML = `
+                        <div class="appt-slot-header">
+                            <span class="blocked-label"><i class="fa-solid fa-lock"></i> ${bloqueio.tipo === 'dia_inteiro' ? 'Folga (Dia Inteiro)' : 'Bloqueado'}</span>
+                            <button class="appt-cancel-btn btn-remover-bloqueio" data-id="${bloqueio.id}" title="Remover bloqueio"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        ${bloqueio.motivo ? `<span class="appointment-type">${bloqueio.motivo}</span>` : ''}
+                    `;
+                } else {
+                    slot.className = 'appointment-slot empty';
+                    slot.textContent = 'Horário Livre';
+                    slot.addEventListener('click', () => abrirModalAgendamento(hora, prof.id, dataSelecionada));
+                }
             }
             coluna.appendChild(slot);
         });
@@ -235,6 +375,30 @@ export function atualizarAgenda() {
     });
 }
 
+export async function carregarBloqueios() {
+    try {
+        const q = query(
+            collection(db, "bloqueios_agenda"),
+            where("clinicaId", "==", clinicaState.sessao.clinicaId)
+        );
+        const querySnapshot = await getDocs(q);
+
+        clinicaState.agenda.bloqueios = [];
+
+        querySnapshot.forEach((doc) => {
+            clinicaState.agenda.bloqueios.push({
+                ...doc.data(),
+                id: String(doc.id)
+            });
+        });
+
+        atualizarAgenda();
+
+    } catch (error) {
+        console.error("Erro ao buscar bloqueios da agenda: ", error);
+        showToast('Erro ao carregar bloqueios de horário.', 'error');
+    }
+}
 export async function carregarAgendamentos() {
     try {
         const q = query(

@@ -2,7 +2,7 @@ import { showToast } from './Ferramentas.js';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut, db, collection, query, where, getDocs, addDoc } from './firebase.js';
 import { clinicaState } from './state.js'; // Adicione esta linha!
 import { carregarPacientes, carregarProfissionais } from './pacientes.js';
-import { carregarAgendamentos } from './agenda.js';
+import { carregarAgendamentos, carregarBloqueios } from './agenda.js';
 import { carregarFinanceiro } from './financeiro.js';
 import { carregarEstoque } from './estoque.js';
 
@@ -36,6 +36,7 @@ export function initAuth() {
                 await carregarPacientes();
                 await carregarProfissionais();
                 await carregarAgendamentos();
+                await carregarBloqueios();
                 await carregarFinanceiro();
                 await carregarEstoque();
                 

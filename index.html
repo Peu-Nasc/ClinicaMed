@@ -27,7 +27,7 @@
             <h3>Acesso Restrito</h3>
             <p class="login-subtitle">Insira suas credenciais para continuar</p>
             
-            <form id="form-login" class="form-grid" style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+            <form id="form-login" class="form-grid flex-col gap-15 mt-20">
                 <div class="form-group">
                     <label>E-mail Corporativo</label>
                     <input type="email" id="login-email" class="input-premium" required placeholder="dr@clinica.com">
@@ -72,7 +72,7 @@
                 <p id="profile-user-name">Carregando...</p>
                 <small id="profile-clinic-status"><i class="fa-solid fa-shield-check"></i> Licença Ativa</small>
                 
-                <button id="btn-logout" class="btn-action" style="width: 100%; margin-top: 12px; border-color: #dc3545; color: #dc3545;">
+                <button id="btn-logout" class="btn-action btn-logout">
                     <i class="fa-solid fa-power-off"></i> Encerrar Sessão
                 </button>
             </div>
@@ -96,8 +96,8 @@
                         </div>
                         
                         <!-- NOVO: Filtros Inteligentes de Período -->
-                        <div class="dashboard-date" style="display: flex; gap: 10px; align-items: center;">
-                            <select id="dash-filtro-periodo" class="input-premium" style="padding: 6px 12px; font-size: 0.9rem; min-width: 150px;">
+                        <div class="dashboard-date">
+                            <select id="dash-filtro-periodo" class="input-premium select-compact">
                                 <option value="mes">Últimos 30 Dias (Padrão)</option>
                                 <option value="hoje">Apenas Hoje</option>
                                 <option value="ontem">Ontem</option>
@@ -105,36 +105,19 @@
                                 <option value="tudo">Todo o Período (Tudo)</option>
                                 <option value="especifico">Data Específica...</option>
                             </select>
-                            <input type="date" id="dash-data-especifica" class="input-premium" style="display: none; padding: 6px 12px; font-size: 0.9rem;">
+                            <input type="date" id="dash-data-especifica" class="input-premium input-compact" style="display: none;">
                         </div>
                     </div>
 
-                    <h3 class="form-section-title" id="dash-titulo-financeiro" style="margin-bottom: 15px; font-size: 1rem;">Performance Financeira (Últimos 30 Dias)</h3>
-                    <div class="card-grid mb-20">
-                        <div class="card card-info" style="border-left-color: #28a745;">
-                            <h3>Receitas Liquidadas</h3>
-                            <p class="big-number positivo" id="dash-receitas">R$ 0,00</p>
-                        </div>
-                        <div class="card card-info" style="border-left-color: #dc3545;">
-                            <h3>Despesas / Custos</h3>
-                            <p class="big-number negativo" id="dash-despesas">R$ 0,00</p>
-                        </div>
-                        <div class="card card-info" style="border-left-color: #ffc107;">
-                            <h3>Glosas Médicas</h3>
-                            <p class="big-number warning" id="dash-glosas">R$ 0,00</p>
-                        </div>
-                        <div class="card card-info" style="border-left-color: var(--primary-color);">
-                            <h3>Lucro Líquido (DRE)</h3>
-                            <p class="big-number total" id="dash-lucro">R$ 0,00</p>
-                        </div>
-                    </div>
+                    <h3 class="form-section-title section-subtitle" id="dash-titulo-financeiro">Performance Financeira (Últimos 30 Dias)</h3>
+                    <div class="card-grid mb-20" id="dash-mini-dash"></div>
 
-                    <h3 class="form-section-title" style="margin-bottom: 15px; margin-top: 30px; font-size: 1rem;">Raio-X Operacional</h3>
+                    <h3 class="form-section-title section-subtitle spaced">Raio-X Operacional</h3>
                     <div class="dashboard-grid">
                         
                         <!-- Painel 1: Agenda Dinâmica -->
                         <div class="card dashboard-panel">
-                            <h4 id="dash-titulo-agenda"><i class="fa-solid fa-calendar-check" style="color: var(--primary-light);"></i> Consultas</h4>
+                            <h4 id="dash-titulo-agenda"><i class="fa-solid fa-calendar-check icon-primary"></i> Consultas</h4>
                             <div class="dash-list" id="dash-list-agenda">
                                 <!-- Preenchido pelo JS -->
                             </div>
@@ -142,7 +125,7 @@
                         
                         <!-- Painel 2: Alertas de Estoque (Sempre exibe o momento atual) -->
                         <div class="card dashboard-panel">
-                            <h4><i class="fa-solid fa-triangle-exclamation" style="color: #ffc107;"></i> Alertas de Estoque (Hoje)</h4>
+                            <h4><i class="fa-solid fa-triangle-exclamation icon-warning"></i> Alertas de Estoque (Hoje)</h4>
                             <div class="dash-list" id="dash-list-estoque">
                                 <!-- Preenchido pelo JS -->
                             </div>
@@ -150,13 +133,13 @@
 
                         <!-- Painel 3: Indicadores Visuais -->
                         <div class="card dashboard-panel">
-                            <h4><i class="fa-solid fa-chart-pie" style="color: #198754;"></i> Indicadores de Saúde</h4>
+                            <h4><i class="fa-solid fa-chart-pie icon-success"></i> Indicadores de Saúde</h4>
                             <div class="dash-metrics mt-15">
                                 <div class="stat-container">
                                     <div class="stat-label"><span>Taxa de Inadimplência</span> <span id="dash-tx-inad">0%</span></div>
                                     <div class="stat-bar"><div class="stat-fill bg-danger" id="dash-bar-inad" style="width: 0%;"></div></div>
                                 </div>
-                                <div class="stat-container mt-15" style="margin-top: 20px;">
+                                <div class="stat-container mt-20">
                                     <div class="stat-label"><span>Taxa de Glosas Médicas</span> <span id="dash-tx-glosa">0%</span></div>
                                     <div class="stat-bar"><div class="stat-fill bg-warning" id="dash-bar-glosa" style="width: 0%;"></div></div>
                                 </div>
@@ -174,6 +157,7 @@
                             <select id="filtro-profissional" class="input-premium">
                                 <option value="todos">Todos os Profissionais</option>
                             </select>
+                            <button class="btn-secondary" id="btn-novo-bloqueio" type="button" data-open-modal="modal-bloqueio"><i class="fa-solid fa-lock"></i> Bloquear Horário</button>
                             <button class="btn-primary" id="btn-novo-agendamento" type="button" data-open-modal="modal-agendamento">+ Agendar</button>
                         </div>
                     </div>
@@ -214,7 +198,7 @@
                     <div id="area-pacientes" style="display: none;">
                         
                         <div id="lista-pacientes-container">
-                        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                        <div class="flex-row gap-15 mb-20">
                             <button class="btn-secondary btn-voltar-hub"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
                             <!-- O Botão de Cadastrar fica em destaque aqui dentro -->
                             <button class="btn-primary" id="btn-novo-paciente">
@@ -258,8 +242,8 @@
                                     <span class="pep-badge neutral" id="pep-convenio">Convênio: -</span>
                                     <span class="pep-badge danger" id="pep-alergias">Alergias: -</span>
                                 </div>
-                                <div style="display: flex; gap: 10px;">
-                                    <button class="btn-secondary" id="btn-imprimir-pep" style="border-color: var(--primary-color); color: var(--primary-color);">
+                                <div class="flex-row gap-10">
+                                    <button class="btn-secondary" id="btn-imprimir-pep">
                                         <i class="fa-solid fa-print"></i>
                                     </button>
                                     <button class="btn-action" id="btn-fechar-pep">
@@ -349,7 +333,7 @@
                                     <div class="print-paciente-row">
                                         <span><strong>Paciente:</strong> <span id="print-nome-paciente"></span></span>
                                     </div>
-                                    <div class="print-paciente-row" style="margin-top: 5px;">
+                                    <div class="print-paciente-row mt-5">
                                         <span><strong>Data de Nasc.:</strong> <span id="print-nasc-paciente"></span></span>
                                         <span><strong>CPF:</strong> <span id="print-cpf-paciente"></span></span>
                                         <span><strong>Data do Atendimento:</strong> <span id="print-data"></span></span>
@@ -374,7 +358,7 @@
 
                     <!-- NÍVEL 2B: Área de Equipe/Profissionais (Oculta por padrão) -->
                     <div id="area-profissionais" style="display: none;">
-                        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                        <div class="flex-row gap-15 mb-20">
                             <button class="btn-secondary btn-voltar-hub"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
                             <button class="btn-primary" id="btn-novo-profissional">
                                 <i class="fa-solid fa-user-doctor"></i> Cadastrar Profissional
@@ -401,23 +385,10 @@
     </div>
 
     <!-- Mini Dashboard do Estoque (Cards coloridos) -->
-    <div class="card-grid mb-20">
-        <div class="card card-info" style="border-left-color: var(--primary-color);">
-            <h3>Lotes Registrados</h3>
-            <p class="big-number" id="est-stat-total">0</p>
-        </div>
-        <div class="card card-info" style="border-left-color: #ffc107;">
-            <h3>Abaixo do Mínimo</h3>
-            <p class="big-number warning" id="est-stat-baixo">0</p>
-        </div>
-        <div class="card card-info" style="border-left-color: #dc3545;">
-            <h3>Vencidos / Críticos</h3>
-            <p class="big-number negativo" id="est-stat-vencidos">0</p>
-        </div>
-    </div>
+    <div class="card-grid mb-20" id="est-mini-dash"></div>
 
     <!-- Barra de Pesquisa de Estoque -->
-    <div class="search-bar mb-20" style="display: flex; gap: 10px; margin-bottom: 20px;">
+    <div class="search-bar">
         <input id="search-estoque" type="text" class="input-form" placeholder="Pesquisar por Nome, Princípio Ativo ou Lote...">
     </div>
 
@@ -439,13 +410,13 @@
 
 <!-- ================== MODAL DE ESTOQUE (JANELA DE CADASTRO) ================== -->
 <div id="modal-estoque" class="modal-overlay">
-    <div class="modal-content" style="max-width: 760px;">
+    <div class="modal-content modal-lg">
         <header class="modal-header">
             <h2>Entrada de Medicamentos / Insumos</h2>
             <button class="btn-close-modal" id="btn-close-estoque" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
         </header>
         <div class="modal-body">
-            <form id="form-estoque" class="form-grid" style="gap: 15px;">
+            <form id="form-estoque" class="form-grid gap-15">
                 
                 <!-- BLOCO 1: Identificação -->
                 <div class="form-group full-width"><h3 class="form-section-title">Identificação Comercial</h3></div>
@@ -455,12 +426,12 @@
                 <div class="form-group"><label>Fabricante / Registro Anvisa</label><input type="text" id="est-anvisa" class="input-premium"></div>
                 
                 <!-- BLOCO 2: Rastreabilidade -->
-                <div class="form-group full-width"><h3 class="form-section-title" style="margin-top: 10px;">Rastreabilidade e Validade</h3></div>
+                <div class="form-group full-width"><h3 class="form-section-title mt-10">Rastreabilidade e Validade</h3></div>
                 <div class="form-group"><label>Número do Lote *</label><input type="text" id="est-lote" class="input-premium" required></div>
                 <div class="form-group"><label>Data de Validade *</label><input type="date" id="est-validade" class="input-premium" required></div>
                 
                 <!-- BLOCO 3: Controle Numérico -->
-                <div class="form-group full-width"><h3 class="form-section-title" style="margin-top: 10px;">Gestão de Quantidades</h3></div>
+                <div class="form-group full-width"><h3 class="form-section-title mt-10">Gestão de Quantidades</h3></div>
                 <div class="form-group"><label>Quantidade Atual (Entrada) *</label><input type="number" id="est-qtd" class="input-premium" required></div>
                 <div class="form-group"><label>Estoque Mínimo (Alerta) *</label><input type="number" id="est-min" class="input-premium" required></div>
                 
@@ -494,25 +465,12 @@
                     </div>
 
                     <!-- NOVO: Mini Dashboard Financeiro Local -->
-                    <div class="card-grid mb-20" id="fin-mini-dash">
-                        <div class="card card-info" style="border-left-color: #28a745; padding: 15px;">
-                            <h3 style="font-size: 0.9rem;">Entradas (Receitas)</h3>
-                            <p class="big-number positivo" id="fin-stat-receitas" style="font-size: 1.5rem;">R$ 0,00</p>
-                        </div>
-                        <div class="card card-info" style="border-left-color: #dc3545; padding: 15px;">
-                            <h3 style="font-size: 0.9rem;">Saídas (Despesas)</h3>
-                            <p class="big-number negativo" id="fin-stat-despesas" style="font-size: 1.5rem;">R$ 0,00</p>
-                        </div>
-                        <div class="card card-info" style="border-left-color: var(--primary-color); padding: 15px;">
-                            <h3 style="font-size: 0.9rem;">Saldo do Filtro Atual</h3>
-                            <p class="big-number total" id="fin-stat-saldo" style="font-size: 1.5rem;">R$ 0,00</p>
-                        </div>
-                    </div>
+                    <div class="card-grid mb-20" id="fin-mini-dash"></div>
 
                     <!-- NOVO: Filtros de Pesquisa do Financeiro -->
-                    <div class="search-bar mb-20" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <input id="search-financeiro" type="text" class="input-form" placeholder="Pesquisar por Nome, Empresa ou Categoria..." style="flex: 2;">
-                        <select id="filtro-mes-financeiro" class="input-premium" style="flex: 1; cursor: pointer;">
+                    <div class="search-bar">
+                        <input id="search-financeiro" type="text" class="input-form flex-2" placeholder="Pesquisar por Nome, Empresa ou Categoria...">
+                        <select id="filtro-mes-financeiro" class="input-premium flex-1">
                             <option value="todos">Todos os Meses</option>
                             <!-- Os meses serão gerados automaticamente pelo JavaScript -->
                         </select>
@@ -540,7 +498,7 @@
     </div>
 
     <div id="modal-cadastro" class="modal-overlay">
-        <div class="modal-content" style="max-width: 850px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content modal-xl">
             <header class="modal-header">
                 <h2>Central de Cadastros</h2>
                 <button class="btn-close-modal" id="btn-close-cadastro" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
@@ -555,10 +513,10 @@
                         </select>
                     </div>
 
-                    <div id="step-verificacao-cpf" class="form-group full-width paciente-only" style="background: #f1f5f9; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                    <div id="step-verificacao-cpf" class="form-group full-width paciente-only highlight-box">
                         <label>Informe o CPF do Paciente para iniciar *</label>
-                        <div style="display: flex; gap: 10px; margin-top: 5px;">
-                            <input type="text" id="cad-cpf-check" class="input-premium" placeholder="000.000.000-00" style="flex: 1;">
+                        <div class="flex-row gap-10 mt-5">
+                            <input type="text" id="cad-cpf-check" class="input-premium flex-1" placeholder="000.000.000-00">
                             <button type="button" class="btn-primary" id="btn-verificar-cpf">Verificar</button>
                         </div>
                     </div>
@@ -567,7 +525,7 @@
                         
                         <div class="form-group full-width"><h3 class="form-section-title">Dados Pessoais</h3></div>
                         <div class="form-group"><label>Nome Completo *</label><input type="text" id="cad-nome" class="input-premium"></div>
-                        <div class="form-group"><label>CPF *</label><input type="text" id="cad-cpf" class="input-premium" readonly style="background-color: #e2e8f0; cursor: not-allowed;"></div>
+                        <div class="form-group"><label>CPF *</label><input type="text" id="cad-cpf" class="input-premium field-locked" readonly></div>
                         <div class="form-group"><label>RG</label><input type="text" id="cad-rg" class="input-premium"></div>
                         <div class="form-group"><label>Data de Nascimento *</label><input type="date" id="cad-nascimento" class="input-premium"></div>
                         <div class="form-group full-width"><label>Nome da Mãe (Evitar homônimos)</label><input type="text" id="cad-mae" class="input-premium"></div>
@@ -610,7 +568,7 @@
     </div>
 
     <div id="modal-financeiro" class="modal-overlay">
-        <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-content modal-md">
             <header class="modal-header">
                 <h2>Lançamento Financeiro</h2>
                 <button class="btn-close-modal" id="btn-close-financeiro" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
@@ -661,7 +619,7 @@
     
 
     <div id="modal-agendamento" class="modal-overlay">
-        <div class="modal-content" style="max-width: 550px;">
+        <div class="modal-content modal-sm">
             <header class="modal-header">
                 <h2>Novo Agendamento</h2>
                 <button class="btn-close-modal" id="btn-close-agendamento"><i class="fa-solid fa-xmark"></i></button>
@@ -704,6 +662,68 @@
         </div>
     </div>
 
+    <!-- ================== MODAL DE BLOQUEIO DE HORÁRIO / FOLGA ================== -->
+    <div id="modal-bloqueio" class="modal-overlay">
+        <div class="modal-content modal-sm">
+            <header class="modal-header">
+                <h2>Bloquear Horário / Folga</h2>
+                <button class="btn-close-modal" id="btn-close-bloqueio"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body">
+                <form id="form-bloqueio" class="form-grid">
+                    <div class="form-group full-width"><label>Profissional *</label><select id="bloqueio-profissional" class="input-premium" required></select></div>
+                    <div class="form-group full-width"><label>Data *</label><input type="date" id="bloqueio-data" class="input-premium" required></div>
+
+                    <div class="form-group full-width">
+                        <label>Tipo de Bloqueio *</label>
+                        <select id="bloqueio-tipo" class="input-premium" required>
+                            <option value="dia_inteiro">Dia Inteiro (Folga)</option>
+                            <option value="horario">Horário Específico</option>
+                        </select>
+                    </div>
+
+                    <div id="bloqueio-horario-especifico-group" class="full-width form-grid" style="display: none;">
+                        <div class="form-group">
+                            <label>Início *</label>
+                            <select id="bloqueio-hora-inicio" class="input-premium">
+                                <option value="08:00">08:00</option>
+                                <option value="09:00">09:00</option>
+                                <option value="10:00">10:00</option>
+                                <option value="11:00">11:00</option>
+                                <option value="13:00">13:00</option>
+                                <option value="14:00">14:00</option>
+                                <option value="15:00">15:00</option>
+                                <option value="16:00">16:00</option>
+                                <option value="17:00">17:00</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fim *</label>
+                            <select id="bloqueio-hora-fim" class="input-premium">
+                                <option value="08:00">08:00</option>
+                                <option value="09:00">09:00</option>
+                                <option value="10:00">10:00</option>
+                                <option value="11:00">11:00</option>
+                                <option value="13:00">13:00</option>
+                                <option value="14:00">14:00</option>
+                                <option value="15:00">15:00</option>
+                                <option value="16:00" selected>16:00</option>
+                                <option value="17:00">17:00</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Motivo (opcional)</label>
+                        <input type="text" id="bloqueio-motivo" class="input-premium" placeholder="Ex: Congresso médico, Férias, Consulta particular...">
+                    </div>
+
+                    <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-lock"></i> Bloquear</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" class="toast-container"></div>
     <script src="https://unpkg.com/imask"></script>
     
@@ -711,7 +731,5 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     
     <script type="module" src="js/main.js"></script>
-</body>
-</html>
 </body>
 </html>

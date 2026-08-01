@@ -1,10 +1,16 @@
 import { clinicaState } from './state.js';
-import { showToast } from './Ferramentas.js';
+import { showToast, renderCardGrid } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let itemEmEdicaoId = null;
 
 export function initEstoque() {
+    renderCardGrid('est-mini-dash', [
+        { id: 'est-stat-total', label: 'Lotes Registrados', initial: '0', variant: 'primary' },
+        { id: 'est-stat-baixo', label: 'Abaixo do Mínimo', initial: '0', variant: 'warning', valueClass: 'warning' },
+        { id: 'est-stat-vencidos', label: 'Vencidos / Críticos', initial: '0', variant: 'danger', valueClass: 'negativo' }
+    ]);
+
     const modalEstoque = document.getElementById('modal-estoque');
     
     document.getElementById('btn-abrir-modal-estoque').addEventListener('click', () => modalEstoque.classList.add('active'));

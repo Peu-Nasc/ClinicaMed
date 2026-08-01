@@ -229,8 +229,82 @@ h1, h2, h3, h4 { letter-spacing: -0.01em; }
 
 .btn-secondary:hover { background-color: var(--secondary-color); }
 
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.mb-5 { margin-bottom: 5px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-15 { margin-bottom: 15px; }
+.mb-20 { margin-bottom: 20px; }
+.mt-5 { margin-top: 5px; }
+.mt-10 { margin-top: 10px; }
+.mt-20 { margin-top: 20px; }
 .mt-15 { margin-top: 15px; }
 .mt-30 { margin-top: 30px; }
+
+/* Utilitários de flex/gap */
+.flex-row { display: flex; align-items: center; }
+.flex-col { display: flex; flex-direction: column; }
+.gap-8 { gap: 8px; }
+.gap-10 { gap: 10px; }
+.gap-15 { gap: 15px; }
+.flex-1 { flex: 1; }
+.flex-2 { flex: 2; }
+
+/* Cabeçalhos de subseção (ex: "Performance Financeira", "Raio-X Operacional") */
+.section-subtitle {
+    margin-bottom: 15px;
+    font-size: 1rem;
+}
+.section-subtitle.spaced { margin-top: 30px; }
+
+/* Variações de cor da borda esquerda dos cards de indicador */
+.card-success { border-left-color: #28a745; }
+.card-danger { border-left-color: #dc3545; }
+.card-warning { border-left-color: #ffc107; }
+.card-primary { border-left-color: var(--primary-color); }
+
+/* Card compacto (mini-dashboards de seção, ex: financeiro) */
+.card-compact { padding: 15px; }
+.card-compact h3 { font-size: 0.9rem; }
+.card-compact .big-number { font-size: 1.5rem; }
+
+.btn-logout {
+    width: 100%;
+    margin-top: 12px;
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.highlight-box {
+    background: #f1f5f9;
+    padding: 15px;
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--primary-color);
+}
+
+.field-locked {
+    background-color: #e2e8f0;
+    cursor: not-allowed;
+}
+
+.select-compact, .input-compact {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+}
+.select-compact { min-width: 150px; }
+
+.dashboard-date { display: flex; gap: 10px; align-items: center; }
+select.input-premium { cursor: pointer; }
+
+/* Tamanhos padronizados de modal (substituem max-width inline) */
+.modal-sm { max-width: 550px; }
+.modal-md { max-width: 700px; }
+.modal-lg { max-width: 760px; }
+.modal-xl { max-width: 850px; max-height: 90vh; overflow-y: auto; }
 
 .btn-action {
     background: transparent;
@@ -651,6 +725,28 @@ h1, h2, h3, h4 { letter-spacing: -0.01em; }
 .appointment-slot.occupied[data-status="confirmado"] { border-left-color: #0d6efd; background-color: #cfe2ff; }
 .appointment-slot.occupied[data-status="aguardando"] { border-left-color: #ffc107; background-color: #fff3cd; }
 .appointment-slot.occupied[data-status="em-atendimento"] { border-left-color: #198754; background-color: #d1e7dd; }
+
+.appointment-slot.blocked {
+    background: repeating-linear-gradient(45deg, #f1f3f5, #f1f3f5 8px, #e9ecef 8px, #e9ecef 16px);
+    border-left: 4px solid #adb5bd;
+    border-radius: 4px;
+    margin: 5px;
+    height: 70px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    cursor: not-allowed;
+    color: var(--text-light);
+}
+
+.blocked-label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
 
 .patient-name { font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
 .appointment-type { font-size: 0.8rem; color: var(--text-light); }
@@ -1354,6 +1450,8 @@ summary.timeline-meta:hover {
 }
 
 .icon-primary { color: var(--primary-light); }
+.icon-warning { color: #ffc107; }
+.icon-success { color: #198754; }
 
 /* Controles rápidos de quantidade (Estoque) */
 .qty-control-row {
