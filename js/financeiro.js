@@ -73,6 +73,11 @@ export function initFinanceiro() {
         });
     }
 
+    const btnExportarCSV = document.getElementById('btn-exportar-financeiro');
+    if (btnExportarCSV) {
+        btnExportarCSV.addEventListener('click', exportarFinanceiroCSV);
+    }
+
     // ========================================================
     // FORMULÁRIO DE LANÇAMENTOS
     // ========================================================
@@ -313,15 +318,10 @@ export function calcularDRE() {
     }
 }
 
-// ========================================================
-// NOVA TABELA FINANCEIRA RESTRUTURADA
-// ========================================================
-export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos') {
-    let totalReceitas = 0;
-    let totalDespesas = 0;
-
-    // Filtra os lançamentos pela barra de pesquisa e pelo dropdown de meses
-    const filtrados = clinicaState.financeiro.lancamentos.filter(l => {
+// Filtra os lançamentos pela barra de pesquisa e pelo dropdown de meses
+// (usado tanto pela tabela quanto pela exportação em CSV, pra manter os dois sempre consistentes)
+function filtrarLancamentos(filtroTexto = '', filtroMes = 'todos') {
+    return clinicaState.financeiro.lancamentos.filter(l => {
         const matchTexto = l.vinculo.toLowerCase().includes(filtroTexto) ||
                            l.tipo.toLowerCase().includes(filtroTexto) ||
                            l.pagamento.toLowerCase().includes(filtroTexto);
@@ -334,6 +334,16 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
 
         return matchTexto && matchMes;
     });
+}
+
+// ========================================================
+// NOVA TABELA FINANCEIRA RESTRUTURADA
+// ========================================================
+export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos') {
+    let totalReceitas = 0;
+    let totalDespesas = 0;
+
+    const filtrados = filtrarLancamentos(filtroTexto, filtroMes);
 
     // Renderiza a Tabela Agrupada
     document.getElementById('finance-table-body').innerHTML = filtrados.slice().reverse().map(l => {
@@ -391,6 +401,54 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
         elSaldo.textContent = formatCurrency(saldo);
         elSaldo.style.color = saldo < 0 ? '#dc3545' : 'var(--primary-color)';
     }
+}
+
+// ========================================================
+// EXPORTAÇÃO DO LIVRO CAIXA EM CSV (respeita o filtro atual da tela)
+// ========================================================
+export function exportarFinanceiroCSV() {
+    const searchFin = document.getElementById('search-financeiro');
+    const mesFin = document.getElementById('filtro-mes-financeiro');
+    const filtroTexto = searchFin ? searchFin.value.toLowerCase() : '';
+    const filtroMes = mesFin ? mesFin.value : 'todos';
+
+    const lancamentos = filtrarLancamentos(filtroTexto, filtroMes).slice().reverse();
+
+    if (lancamentos.length === 0) {
+        showToast('Nenhum lançamento para exportar com o filtro atual.', 'warning');
+        return;
+    }
+
+    const cabecalho = ['Competência', 'Data de Caixa', 'Tipo', 'Vínculo', 'Forma de Pagamento', 'Status', 'Valor (R$)'];
+    const linhas = lancamentos.map(l => [
+        l.competencia.split('-').reverse().join('/'),
+        l.caixa.split('-').reverse().join('/'),
+        l.tipo,
+        l.vinculo,
+        l.pagamento,
+        l.status,
+        l.valor.toFixed(2).replace('.', ',')
+    ]);
+
+    // Ponto e vírgula como separador (padrão que o Excel em pt-BR reconhece automaticamente)
+    const csv = [cabecalho, ...linhas]
+        .map(linha => linha.map(campo => `"${String(campo).replace(/"/g, '""')}"`).join(';'))
+        .join('\r\n');
+
+    // BOM no início garante que acentuação (UTF-8) apareça corretamente no Excel
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dataAtual = new Date().toISOString().split('T')[0];
+
+    link.href = url;
+    link.download = `livro-caixa_${dataAtual}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast(`${lancamentos.length} lançamento(s) exportado(s) com sucesso.`, 'success');
 }
 
 export async function carregarFinanceiro() {
