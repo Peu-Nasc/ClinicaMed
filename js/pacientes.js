@@ -358,7 +358,7 @@ export function abrirProntuario(idPaciente) {
             }
 
             selProf.innerHTML = '<option value="" disabled selected>Selecione para assinar...</option>' + 
-                profsPermitidos.map(p => `<option value="${p.id}">${p.nome} (${p.conselho}: ${p.registro})</option>`).join('');
+                profsPermitidos.map(p => `<option value="${p.id}">${escapeHTML(p.nome)} (${escapeHTML(p.conselho)}: ${escapeHTML(p.registro)})</option>`).join('');
             
             if (travaSelect && profsPermitidos.length > 0) {
                 selProf.value = profsPermitidos[0].id;
@@ -405,7 +405,7 @@ function renderizarEvolucoes(paciente) {
         <details class="timeline-item">
             <summary class="timeline-meta">
                 <span><i class="fa-regular fa-calendar"></i> <strong>${evo.data}</strong></span>
-                <span class="assinatura-meta"><i class="fa-solid fa-lock"></i> ${evo.assinatura}</span>
+                <span class="assinatura-meta"><i class="fa-solid fa-lock"></i> ${escapeHTML(evo.assinatura)}</span>
             </summary>
             <div class="timeline-content">${textoFormatado}</div>
         </details>
@@ -426,11 +426,11 @@ export function renderizarResumoPacienteAtivo() {
     const dataNasc = paciente.nascimento ? paciente.nascimento.split('-').reverse().join('/') : 'Não inf.';
     if (elDados) elDados.textContent = `CPF: ${paciente.cpf} | Nasc: ${dataNasc} | Tel: ${paciente.telefone || 'Não inf.'}`;
     
-    if (elConvenio) elConvenio.innerHTML = `<i class="fa-solid fa-address-card"></i> ${paciente.convenio || 'Particular'}`;
+    if (elConvenio) elConvenio.innerHTML = `<i class="fa-solid fa-address-card"></i> ${escapeHTML(paciente.convenio || 'Particular')}`;
     
     if (elAlergias) {
         if (paciente.alergias) {
-            elAlergias.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Alergias: ${paciente.alergias}`;
+            elAlergias.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Alergias: ${escapeHTML(paciente.alergias)}`;
             elAlergias.className = 'pep-badge danger';
         } else {
             elAlergias.innerHTML = `<i class="fa-solid fa-check"></i> Sem alergias`;
@@ -444,10 +444,10 @@ export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
     if (patientListBody) {
         patientListBody.innerHTML = lista.map(p => 
             `<tr>
-                <td><strong>${p.nome}</strong></td>
-                <td>${p.cpf}</td>
-                <td>${p.convenio}</td>
-                <td style="color:red">${p.alergias || '-'}</td>
+                <td><strong>${escapeHTML(p.nome)}</strong></td>
+                <td>${escapeHTML(p.cpf)}</td>
+                <td>${escapeHTML(p.convenio)}</td>
+                <td style="color:red">${p.alergias ? escapeHTML(p.alergias) : '-'}</td>
                 <td>
                     <div class="row-actions">
                         <button class="btn-action btn-abrir-prontuario" data-id="${p.id}" title="Acessar Ficha">
@@ -546,9 +546,9 @@ export function atualizarTabelaProfissionais() {
     if (profListBody) {
         profListBody.innerHTML = clinicaState.profissionais.map(p => 
             `<tr>
-                <td><strong>${p.nome}</strong></td>
-                <td>${p.especialidade}</td>
-                <td>${p.conselho} ${p.registro}</td>
+                <td><strong>${escapeHTML(p.nome)}</strong></td>
+                <td>${escapeHTML(p.especialidade)}</td>
+                <td>${escapeHTML(p.conselho)} ${escapeHTML(p.registro)}</td>
                 <td>
                     <button class="btn-action btn-delete btn-excluir-prof" data-id="${p.id}">
                         <i class="fa-solid fa-trash"></i> Excluir

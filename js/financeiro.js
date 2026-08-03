@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { formatCurrency, showToast, renderCardGrid, comEstadoDeCarregamento } from './Ferramentas.js';
+import { formatCurrency, showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let lancamentoEmEdicaoId = null;
@@ -283,10 +283,10 @@ export function calcularDRE() {
                 return `
                 <div class="dash-list-item">
                     <div>
-                        <strong style="color: var(--primary-color);">${dataExibicao}</strong> - <strong>${c.pacNome}</strong><br>
-                        <span style="color: var(--text-light); font-size: 0.75rem;"><i class="fa-solid fa-stethoscope"></i> ${c.tipo || 'Consulta'}</span>
+                        <strong style="color: var(--primary-color);">${dataExibicao}</strong> - <strong>${escapeHTML(c.pacNome)}</strong><br>
+                        <span style="color: var(--text-light); font-size: 0.75rem;"><i class="fa-solid fa-stethoscope"></i> ${escapeHTML(c.tipo || 'Consulta')}</span>
                     </div>
-                    <span class="badge ${badgeColor}" style="font-size:0.7rem; text-transform: uppercase;">${c.status}</span>
+                    <span class="badge ${badgeColor}" style="font-size:0.7rem; text-transform: uppercase;">${escapeHTML(c.status)}</span>
                 </div>
             `}).join('');
         }
@@ -301,8 +301,8 @@ export function calcularDRE() {
             dashEstoque.innerHTML = itensAlerta.map(i => `
                 <div class="dash-list-item danger">
                     <div>
-                        <strong>${i.nome}</strong><br>
-                        <span style="color: var(--text-light); font-size: 0.75rem;"><i class="fa-solid fa-barcode"></i> Lote: ${i.lote}</span>
+                        <strong>${escapeHTML(i.nome)}</strong><br>
+                        <span style="color: var(--text-light); font-size: 0.75rem;"><i class="fa-solid fa-barcode"></i> Lote: ${escapeHTML(i.lote)}</span>
                     </div>
                     <div style="text-align: right;">
                         <strong style="color: #dc3545; font-size: 1rem;">${i.qtd} un</strong><br>
@@ -364,11 +364,11 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
                 <small style="color: var(--text-light);"><i class="fa-solid fa-cash-register"></i> Caixa: ${l.caixa.split('-').reverse().join('/')}</small>
             </td>
             <td>
-                <strong>${l.vinculo}</strong><br>
-                <small style="color: var(--text-light);">${l.tipo}</small>
+                <strong>${escapeHTML(l.vinculo)}</strong><br>
+                <small style="color: var(--text-light);">${escapeHTML(l.tipo)}</small>
             </td>
-            <td><i class="fa-solid ${iconPag} icon-primary"></i> ${l.pagamento}</td>
-            <td><span class="badge ${corStatus}">${l.status}</span></td>
+            <td><i class="fa-solid ${iconPag} icon-primary"></i> ${escapeHTML(l.pagamento)}</td>
+            <td><span class="badge ${corStatus}">${escapeHTML(l.status)}</span></td>
             <td class="${isEntrada ? 'positivo' : 'negativo'} valor-lancamento">
                 ${isEntrada ? '+' : '-'} ${formatCurrency(l.valor)}
             </td>

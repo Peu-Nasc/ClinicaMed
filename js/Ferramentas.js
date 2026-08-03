@@ -7,8 +7,20 @@ export function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    let icon = type === 'error' ? 'fa-circle-xmark' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-check';
-    toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+
+    const icon = document.createElement('i');
+    icon.className = `fa-solid ${type === 'error' ? 'fa-circle-xmark' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-check'}`;
+
+    // Usamos textContent (em vez de inserir a mensagem via innerHTML) para que
+    // esta função seja segura por padrão, mesmo quando a mensagem contiver
+    // dado digitado pelo usuário (nome de paciente, item de estoque, etc.)
+    const span = document.createElement('span');
+    span.textContent = message;
+
+    toast.appendChild(icon);
+    toast.appendChild(document.createTextNode(' '));
+    toast.appendChild(span);
+
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 4500);
 }

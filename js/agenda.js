@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { showToast, comEstadoDeCarregamento } from './Ferramentas.js';
+import { showToast, comEstadoDeCarregamento, escapeHTML } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, where } from './firebase.js';
 
 const appointmentTimes = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
@@ -213,8 +213,8 @@ export function abrirModalAgendamento(hora = '', profId = '', data = '') {
         profsPermitidos = clinicaState.profissionais.filter(p => p.nome.trim().toLowerCase() === clinicaState.sessao.nome.trim().toLowerCase());
     }
 
-    selPac.innerHTML = clinicaState.pacientes.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-    selProf.innerHTML = profsPermitidos.map(p => `<option value="${p.id}">${p.nome} (${p.especialidade})</option>`).join('');
+    selPac.innerHTML = clinicaState.pacientes.map(p => `<option value="${p.id}">${escapeHTML(p.nome)}</option>`).join('');
+    selProf.innerHTML = profsPermitidos.map(p => `<option value="${p.id}">${escapeHTML(p.nome)} (${escapeHTML(p.especialidade)})</option>`).join('');
     
     // Bloqueia visualmente o campo se for médico
     if (clinicaState.sessao.perfil === 'Doutor(a)') {
@@ -248,7 +248,7 @@ export function abrirModalBloqueio() {
         profsPermitidos = clinicaState.profissionais.filter(p => p.nome.trim().toLowerCase() === clinicaState.sessao.nome.trim().toLowerCase());
     }
 
-    selProf.innerHTML = profsPermitidos.map(p => `<option value="${p.id}">${p.nome} (${p.especialidade})</option>`).join('');
+    selProf.innerHTML = profsPermitidos.map(p => `<option value="${p.id}">${escapeHTML(p.nome)} (${escapeHTML(p.especialidade)})</option>`).join('');
 
     document.getElementById('bloqueio-data').value = inputDataAgenda.value;
     document.getElementById('bloqueio-tipo').value = 'dia_inteiro';
@@ -282,7 +282,7 @@ export function atualizarAgenda() {
     // Configura o Dropdown de Filtro da Tabela
     let opcoesFiltro = '';
     if (mostrarTodos) opcoesFiltro += `<option value="todos">Todos os Profissionais</option>`;
-    opcoesFiltro += profsPermitidos.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+    opcoesFiltro += profsPermitidos.map(p => `<option value="${p.id}">${escapeHTML(p.nome)}</option>`).join('');
     
     // Mantém o valor anterior selecionado, se possível
     const valorAnterior = filtroProfissional.value;
@@ -310,7 +310,7 @@ export function atualizarAgenda() {
     profsParaExibir.forEach(prof => {
         const coluna = document.createElement('div');
         coluna.className = 'professional-column';
-        coluna.innerHTML = `<div class="prof-header"><strong>${prof.nome}</strong><small>${prof.especialidade}</small></div>`;
+        coluna.innerHTML = `<div class="prof-header"><strong>${escapeHTML(prof.nome)}</strong><small>${escapeHTML(prof.especialidade)}</small></div>`;
         
         appointmentTimes.forEach(hora => {
             const agendamento = clinicaState.agenda.agendamentos.find(a => 
@@ -325,10 +325,10 @@ export function atualizarAgenda() {
                     
                     slot.innerHTML = `
                         <div class="appt-slot-header">
-                            <p class="patient-name">${agendamento.pacNome}</p>
+                            <p class="patient-name">${escapeHTML(agendamento.pacNome)}</p>
                             <button class="appt-cancel-btn btn-cancelar-consulta" data-id="${agendamento.id}" title="Cancelar Horário"><i class="fa-solid fa-xmark"></i></button>
                         </div>
-                        <span class="appointment-type">${agendamento.tipo || 'Consulta'}</span>
+                        <span class="appointment-type">${escapeHTML(agendamento.tipo || 'Consulta')}</span>
                         
                         <select class="select-status-agenda input-premium" data-id="${agendamento.id}">
                             <option value="aguardando" ${statusAtual === 'aguardando' ? 'selected' : ''}>⏳ Aguardando</option>
@@ -345,7 +345,7 @@ export function atualizarAgenda() {
                             <span class="blocked-label"><i class="fa-solid fa-lock"></i> ${bloqueio.tipo === 'dia_inteiro' ? 'Folga (Dia Inteiro)' : 'Bloqueado'}</span>
                             <button class="appt-cancel-btn btn-remover-bloqueio" data-id="${bloqueio.id}" title="Remover bloqueio"><i class="fa-solid fa-xmark"></i></button>
                         </div>
-                        ${bloqueio.motivo ? `<span class="appointment-type">${bloqueio.motivo}</span>` : ''}
+                        ${bloqueio.motivo ? `<span class="appointment-type">${escapeHTML(bloqueio.motivo)}</span>` : ''}
                     `;
                 } else {
                     slot.className = 'appointment-slot empty';

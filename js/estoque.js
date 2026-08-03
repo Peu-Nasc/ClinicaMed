@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { showToast, renderCardGrid, comEstadoDeCarregamento } from './Ferramentas.js';
+import { showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let itemEmEdicaoId = null;
@@ -107,12 +107,12 @@ export function atualizarTabelaEstoque(filtro = '') {
 
         return `<tr>
             <td>
-                <strong>${i.nome}</strong><br>
-                <small style="color: #6C757D;">Cód: ${i.codigo} | ${i.apresentacao} | ${i.controle}</small>
+                <strong>${escapeHTML(i.nome)}</strong><br>
+                <small style="color: #6C757D;">Cód: ${escapeHTML(i.codigo)} | ${escapeHTML(i.apresentacao)} | ${escapeHTML(i.controle)}</small>
             </td>
             <td>
-                <span style="font-weight: 600;">Lote: ${i.lote}</span><br>
-                <small style="color: #6C757D;">Val: ${i.validade}</small>
+                <span style="font-weight: 600;">Lote: ${escapeHTML(i.lote)}</span><br>
+                <small style="color: #6C757D;">Val: ${escapeHTML(i.validade)}</small>
             </td>
             <td>
                 <!-- CONTROLES RÁPIDOS DE QUANTIDADE -->
