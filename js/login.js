@@ -1,4 +1,4 @@
-import { showToast } from './Ferramentas.js';
+import { showToast, comEstadoDeCarregamento } from './Ferramentas.js';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut, db, collection, query, where, getDocs, addDoc } from './firebase.js';
 import { clinicaState } from './state.js'; // Adicione esta linha!
 import { carregarPacientes, carregarProfissionais } from './pacientes.js';
@@ -61,59 +61,53 @@ export function initAuth() {
         const email = document.getElementById('login-email').value;
         const senha = document.getElementById('login-senha').value;
         const btn = formLogin.querySelector('button[type="submit"]');
-        const textoOriginal = btn.innerHTML;
-        
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Autenticando...';
-        btn.disabled = true;
 
-        try {
-            // 1. Envia as credenciais para o Firebase
-            const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-            const user = userCredential.user;
+        await comEstadoDeCarregamento(btn, 'Autenticando...', async () => {
+            try {
+                // 1. Envia as credenciais para o Firebase
+                const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+                const user = userCredential.user;
 
-            // 2. Procura qual é o perfil desse e-mail na sua coleção de controle
-            const q = query(collection(db, "usuarios"), where("email", "==", user.email));
-            const querySnapshot = await getDocs(q);
-            
-            if (querySnapshot.empty) {
-                // Se o e-mail não estiver na tabela de permissões do Firebase, bloqueia na hora!
-                showToast('Acesso negado. Usuário sem perfil configurado no sistema.', 'error');
-                await signOut(auth);
-                btn.innerHTML = textoOriginal;
-                btn.disabled = false;
-                return; 
+                // 2. Procura qual é o perfil desse e-mail na sua coleção de controle
+                const q = query(collection(db, "usuarios"), where("email", "==", user.email));
+                const querySnapshot = await getDocs(q);
+                
+                if (querySnapshot.empty) {
+                    // Se o e-mail não estiver na tabela de permissões do Firebase, bloqueia na hora!
+                    showToast('Acesso negado. Usuário sem perfil configurado no sistema.', 'error');
+                    await signOut(auth);
+                    return; 
+                }
+
+                // Pega as permissões que você configurou manualmente no Firebase
+                const dadosUsuario = querySnapshot.docs[0].data();
+
+                // 3. Salva na memória do sistema
+                clinicaState.sessao.uid = user.uid;
+                clinicaState.sessao.email = user.email;
+                clinicaState.sessao.nome = dadosUsuario.nome;
+                clinicaState.sessao.perfil = dadosUsuario.perfil;
+                clinicaState.sessao.clinicaId = dadosUsuario.clinicaId;
+
+                // 4. Aplica as travas visuais (Oculta os menus)
+                aplicarPermissoesDeTela();
+
+                loginScreen.style.opacity = '0';
+                loginScreen.style.transition = 'opacity 0.5s ease';
+                
+                setTimeout(() => {
+                    loginScreen.classList.remove('active');
+                    loginScreen.style.display = 'none';
+                    loginScreen.style.opacity = '1';
+                }, 500);
+                
+                showToast(`Bem-vindo, ${dadosUsuario.nome}! Acesso: ${dadosUsuario.perfil.toUpperCase()}`, 'success');
+
+            } catch (error) {
+                console.error("Erro no login:", error.code);
+                showToast('Credenciais inválidas ou acesso negado.', 'error');
             }
-
-            // Pega as permissões que você configurou manualmente no Firebase
-            const dadosUsuario = querySnapshot.docs[0].data();
-
-            // 3. Salva na memória do sistema
-            clinicaState.sessao.uid = user.uid;
-            clinicaState.sessao.email = user.email;
-            clinicaState.sessao.nome = dadosUsuario.nome;
-            clinicaState.sessao.perfil = dadosUsuario.perfil;
-            clinicaState.sessao.clinicaId = dadosUsuario.clinicaId;
-
-            // 4. Aplica as travas visuais (Oculta os menus)
-            aplicarPermissoesDeTela();
-
-            loginScreen.style.opacity = '0';
-            loginScreen.style.transition = 'opacity 0.5s ease';
-            
-            setTimeout(() => {
-                loginScreen.classList.remove('active');
-                loginScreen.style.display = 'none';
-                loginScreen.style.opacity = '1';
-            }, 500);
-            
-            showToast(`Bem-vindo, ${dadosUsuario.nome}! Acesso: ${dadosUsuario.perfil.toUpperCase()}`, 'success');
-
-        } catch (error) {
-            console.error("Erro no login:", error.code);
-            showToast('Credenciais inválidas ou acesso negado.', 'error');
-            btn.innerHTML = textoOriginal;
-            btn.disabled = false;
-        }
+        });
     });
 
     btnSolicitarAcesso.addEventListener('click', () => {

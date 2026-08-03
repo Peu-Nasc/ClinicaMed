@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { formatCurrency, showToast, renderCardGrid } from './Ferramentas.js';
+import { formatCurrency, showToast, renderCardGrid, comEstadoDeCarregamento } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let lancamentoEmEdicaoId = null;
@@ -85,48 +85,44 @@ export function initFinanceiro() {
         e.preventDefault();
         
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoOriginal = btnSalvar.innerHTML;
-        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Lançando...';
-        btnSalvar.disabled = true;
-        
-        let valorInput = document.getElementById('fin-valor').value;
-        if (typeof valorInput === 'string') {
-            valorInput = valorInput.replace(/\./g, '').replace(',', '.');
-        }
 
-        try {
-            const dadosParaSalvar = {
-                tipo: document.getElementById('fin-tipo').value,
-                vinculo: document.getElementById('fin-vinculo').value,
-                pagamento: document.getElementById('fin-pagamento').value,
-                status: document.getElementById('fin-status').value,
-                competencia: document.getElementById('fin-competencia').value,
-                caixa: document.getElementById('fin-caixa').value,
-                valor: parseFloat(valorInput),
-                clinicaId: clinicaState.sessao.clinicaId
-            };
-
-            if (lancamentoEmEdicaoId) {
-                await updateDoc(doc(db, "financeiro", lancamentoEmEdicaoId), dadosParaSalvar);
-                showToast('Lançamento atualizado e DRE recalculada!', 'success');
-            } else {
-                await addDoc(collection(db, "financeiro"), dadosParaSalvar);
-                showToast('Lançamento registrado na nuvem com sucesso.', 'success');
+        await comEstadoDeCarregamento(btnSalvar, 'Lançando...', async () => {
+            let valorInput = document.getElementById('fin-valor').value;
+            if (typeof valorInput === 'string') {
+                valorInput = valorInput.replace(/\./g, '').replace(',', '.');
             }
-            
-            modalFinanceiro.classList.remove('active');
-            e.target.reset();
-            lancamentoEmEdicaoId = null; 
-            
-            await carregarFinanceiro(); 
-            
-        } catch (error) {
-            console.error("Erro no caixa: ", error);
-            showToast('Falha ao registrar lançamento financeiro.', 'error');
-        } finally {
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-        }
+
+            try {
+                const dadosParaSalvar = {
+                    tipo: document.getElementById('fin-tipo').value,
+                    vinculo: document.getElementById('fin-vinculo').value,
+                    pagamento: document.getElementById('fin-pagamento').value,
+                    status: document.getElementById('fin-status').value,
+                    competencia: document.getElementById('fin-competencia').value,
+                    caixa: document.getElementById('fin-caixa').value,
+                    valor: parseFloat(valorInput),
+                    clinicaId: clinicaState.sessao.clinicaId
+                };
+
+                if (lancamentoEmEdicaoId) {
+                    await updateDoc(doc(db, "financeiro", lancamentoEmEdicaoId), dadosParaSalvar);
+                    showToast('Lançamento atualizado e DRE recalculada!', 'success');
+                } else {
+                    await addDoc(collection(db, "financeiro"), dadosParaSalvar);
+                    showToast('Lançamento registrado na nuvem com sucesso.', 'success');
+                }
+                
+                modalFinanceiro.classList.remove('active');
+                e.target.reset();
+                lancamentoEmEdicaoId = null; 
+                
+                await carregarFinanceiro(); 
+                
+            } catch (error) {
+                console.error("Erro no caixa: ", error);
+                showToast('Falha ao registrar lançamento financeiro.', 'error');
+            }
+        });
     });
 
     const financeTableBody = document.getElementById('finance-table-body');

@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { showToast } from './Ferramentas.js';
+import { showToast, comEstadoDeCarregamento } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, where } from './firebase.js';
 
 const appointmentTimes = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
@@ -44,123 +44,107 @@ export function initAgenda() {
         e.preventDefault();
 
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoOriginal = btnSalvar.innerHTML;
-        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Bloqueando...';
-        btnSalvar.disabled = true;
 
-        const profId = document.getElementById('bloqueio-profissional').value;
-        const data = document.getElementById('bloqueio-data').value;
-        const tipo = selectTipoBloqueio.value;
-        const horaInicio = tipo === 'horario' ? document.getElementById('bloqueio-hora-inicio').value : null;
-        const horaFim = tipo === 'horario' ? document.getElementById('bloqueio-hora-fim').value : null;
+        await comEstadoDeCarregamento(btnSalvar, 'Bloqueando...', async () => {
+            const profId = document.getElementById('bloqueio-profissional').value;
+            const data = document.getElementById('bloqueio-data').value;
+            const tipo = selectTipoBloqueio.value;
+            const horaInicio = tipo === 'horario' ? document.getElementById('bloqueio-hora-inicio').value : null;
+            const horaFim = tipo === 'horario' ? document.getElementById('bloqueio-hora-fim').value : null;
 
-        if (tipo === 'horario' && horaInicio > horaFim) {
-            showToast('O horário de início não pode ser depois do horário de fim.', 'error');
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-            return;
-        }
+            if (tipo === 'horario' && horaInicio > horaFim) {
+                showToast('O horário de início não pode ser depois do horário de fim.', 'error');
+                return;
+            }
 
-        // Impede bloquear em cima de consulta já marcada
-        const conflito = clinicaState.agenda.agendamentos.some(a => {
-            if (a.profId !== String(profId) || a.data !== data) return false;
-            if (tipo === 'dia_inteiro') return true;
-            return a.hora >= horaInicio && a.hora <= horaFim;
-        });
-
-        if (conflito) {
-            showToast('Já existe consulta marcada nesse período. Cancele a consulta antes de bloquear o horário.', 'error');
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-            return;
-        }
-
-        try {
-            await addDoc(collection(db, "bloqueios_agenda"), {
-                profId: String(profId),
-                data,
-                tipo,
-                horaInicio,
-                horaFim,
-                motivo: document.getElementById('bloqueio-motivo').value,
-                clinicaId: clinicaState.sessao.clinicaId
+            // Impede bloquear em cima de consulta já marcada
+            const conflito = clinicaState.agenda.agendamentos.some(a => {
+                if (a.profId !== String(profId) || a.data !== data) return false;
+                if (tipo === 'dia_inteiro') return true;
+                return a.hora >= horaInicio && a.hora <= horaFim;
             });
 
-            modalBloqueio.classList.remove('active');
-            e.target.reset();
-            grupoHorarioEspecifico.style.display = 'none';
-            showToast('Horário bloqueado com sucesso.', 'success');
+            if (conflito) {
+                showToast('Já existe consulta marcada nesse período. Cancele a consulta antes de bloquear o horário.', 'error');
+                return;
+            }
 
-            await carregarBloqueios();
-        } catch (error) {
-            console.error("Erro ao bloquear horário: ", error);
-            showToast('Falha de conexão ao bloquear horário.', 'error');
-        } finally {
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-        }
+            try {
+                await addDoc(collection(db, "bloqueios_agenda"), {
+                    profId: String(profId),
+                    data,
+                    tipo,
+                    horaInicio,
+                    horaFim,
+                    motivo: document.getElementById('bloqueio-motivo').value,
+                    clinicaId: clinicaState.sessao.clinicaId
+                });
+
+                modalBloqueio.classList.remove('active');
+                e.target.reset();
+                grupoHorarioEspecifico.style.display = 'none';
+                showToast('Horário bloqueado com sucesso.', 'success');
+
+                await carregarBloqueios();
+            } catch (error) {
+                console.error("Erro ao bloquear horário: ", error);
+                showToast('Falha de conexão ao bloquear horário.', 'error');
+            }
+        });
     });
 
     document.getElementById('form-agendamento').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoOriginal = btnSalvar.innerHTML;
-        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Agendando...';
-        btnSalvar.disabled = true;
 
-        const pacId = document.getElementById('agenda-paciente').value;
-        const profId = document.getElementById('agenda-profissional').value;
-        const dataAgendamento = document.getElementById('agenda-data').value;
-        const horaAgendamento = document.getElementById('agenda-hora').value;
-        const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacId));
+        await comEstadoDeCarregamento(btnSalvar, 'Agendando...', async () => {
+            const pacId = document.getElementById('agenda-paciente').value;
+            const profId = document.getElementById('agenda-profissional').value;
+            const dataAgendamento = document.getElementById('agenda-data').value;
+            const horaAgendamento = document.getElementById('agenda-hora').value;
+            const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacId));
 
-        // SISTEMA DE BLOQUEIO (Impede choque de horários)
-        const horarioOcupado = clinicaState.agenda.agendamentos.find(a => 
-            a.profId === String(profId) && 
-            a.data === dataAgendamento && 
-            a.hora === horaAgendamento
-        );
+            // SISTEMA DE BLOQUEIO (Impede choque de horários)
+            const horarioOcupado = clinicaState.agenda.agendamentos.find(a => 
+                a.profId === String(profId) && 
+                a.data === dataAgendamento && 
+                a.hora === horaAgendamento
+            );
 
-        if (horarioOcupado) {
-            showToast('Atenção: Este médico já possui um paciente agendado neste horário!', 'error');
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-            return; 
-        }
+            if (horarioOcupado) {
+                showToast('Atenção: Este médico já possui um paciente agendado neste horário!', 'error');
+                return; 
+            }
 
-        const bloqueio = obterBloqueio(profId, dataAgendamento, horaAgendamento);
-        if (bloqueio) {
-            showToast('Este horário está bloqueado (folga/indisponibilidade) para este profissional.', 'error');
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-            return;
-        }
+            const bloqueio = obterBloqueio(profId, dataAgendamento, horaAgendamento);
+            if (bloqueio) {
+                showToast('Este horário está bloqueado (folga/indisponibilidade) para este profissional.', 'error');
+                return;
+            }
 
-        try {
-            await addDoc(collection(db, "agendamentos"), {
-                pacId: String(pacId),
-                pacNome: paciente ? paciente.nome : 'Paciente',
-                profId: String(profId),
-                data: dataAgendamento,
-                hora: horaAgendamento,
-                tipo: document.getElementById('agenda-tipo').value,
-                status: 'aguardando', 
-                clinicaId: clinicaState.sessao.clinicaId
-            });
-            
-            modalAgenda.classList.remove('active');
-            e.target.reset();
-            showToast('Consulta agendada com sucesso!', 'success');
-            
-            await carregarAgendamentos(); 
-        } catch (error) {
-            console.error("Erro ao agendar: ", error);
-            showToast('Falha de conexão ao agendar.', 'error');
-        } finally {
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-        }
+            try {
+                await addDoc(collection(db, "agendamentos"), {
+                    pacId: String(pacId),
+                    pacNome: paciente ? paciente.nome : 'Paciente',
+                    profId: String(profId),
+                    data: dataAgendamento,
+                    hora: horaAgendamento,
+                    tipo: document.getElementById('agenda-tipo').value,
+                    status: 'aguardando', 
+                    clinicaId: clinicaState.sessao.clinicaId
+                });
+                
+                modalAgenda.classList.remove('active');
+                e.target.reset();
+                showToast('Consulta agendada com sucesso!', 'success');
+                
+                await carregarAgendamentos(); 
+            } catch (error) {
+                console.error("Erro ao agendar: ", error);
+                showToast('Falha de conexão ao agendar.', 'error');
+            }
+        });
     });
 
     const agendaContainer = document.getElementById('agenda-professionals');

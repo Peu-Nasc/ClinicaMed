@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { showToast, renderCardGrid } from './Ferramentas.js';
+import { showToast, renderCardGrid, comEstadoDeCarregamento } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let itemEmEdicaoId = null;
@@ -29,45 +29,41 @@ export function initEstoque() {
         e.preventDefault();
         
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoOriginal = btnSalvar.innerHTML;
-        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registrando...';
-        btnSalvar.disabled = true;
 
-        try {
-            const dadosParaSalvar = {
-                codigo: document.getElementById('est-codigo').value,
-                nome: document.getElementById('est-nome').value,
-                apresentacao: document.getElementById('est-apresentacao').value,
-                anvisa: document.getElementById('est-anvisa').value,
-                lote: document.getElementById('est-lote').value,
-                validade: document.getElementById('est-validade').value,
-                qtd: parseInt(document.getElementById('est-qtd').value),
-                min: parseInt(document.getElementById('est-min').value),
-                controle: document.getElementById('est-controle').value,
-                clinicaId: clinicaState.sessao.clinicaId
-            };
+        await comEstadoDeCarregamento(btnSalvar, 'Registrando...', async () => {
+            try {
+                const dadosParaSalvar = {
+                    codigo: document.getElementById('est-codigo').value,
+                    nome: document.getElementById('est-nome').value,
+                    apresentacao: document.getElementById('est-apresentacao').value,
+                    anvisa: document.getElementById('est-anvisa').value,
+                    lote: document.getElementById('est-lote').value,
+                    validade: document.getElementById('est-validade').value,
+                    qtd: parseInt(document.getElementById('est-qtd').value),
+                    min: parseInt(document.getElementById('est-min').value),
+                    controle: document.getElementById('est-controle').value,
+                    clinicaId: clinicaState.sessao.clinicaId
+                };
 
-            if (itemEmEdicaoId) {
-                await updateDoc(doc(db, "estoque", itemEmEdicaoId), dadosParaSalvar);
-                showToast('Lote atualizado com sucesso.', 'success');
-            } else {
-                await addDoc(collection(db, "estoque"), dadosParaSalvar);
-                showToast('Item registrado no estoque com sucesso.', 'success');
+                if (itemEmEdicaoId) {
+                    await updateDoc(doc(db, "estoque", itemEmEdicaoId), dadosParaSalvar);
+                    showToast('Lote atualizado com sucesso.', 'success');
+                } else {
+                    await addDoc(collection(db, "estoque"), dadosParaSalvar);
+                    showToast('Item registrado no estoque com sucesso.', 'success');
+                }
+                
+                modalEstoque.classList.remove('active');
+                e.target.reset();
+                itemEmEdicaoId = null; 
+                
+                await carregarEstoque(); 
+                
+            } catch (error) {
+                console.error("Erro no estoque: ", error);
+                showToast('Falha ao registrar item.', 'error');
             }
-            
-            modalEstoque.classList.remove('active');
-            e.target.reset();
-            itemEmEdicaoId = null; 
-            
-            await carregarEstoque(); 
-            
-        } catch (error) {
-            console.error("Erro no estoque: ", error);
-            showToast('Falha ao registrar item.', 'error');
-        } finally {
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-        }
+        });
     });
 }
 

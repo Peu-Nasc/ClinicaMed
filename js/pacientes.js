@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { showToast, escapeHTML } from './Ferramentas.js';
+import { showToast, escapeHTML, encriptar, decriptar, comEstadoDeCarregamento } from './Ferramentas.js';
 import { atualizarAgenda } from './agenda.js';
 
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
@@ -74,72 +74,64 @@ export function initPacientes() {
         }
 
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoBotaoOriginal = btnSalvar.innerHTML;
-        
-        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
-        btnSalvar.disabled = true;
 
-        const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
-        const encriptar = (texto) => texto ? CryptoJS.AES.encrypt(texto, chaveSecreta).toString() : '';
+        await comEstadoDeCarregamento(btnSalvar, 'Salvando...', async () => {
+            const baseData = {
+                nome: encriptar(document.getElementById('cad-nome').value),
+                cpf: encriptar(document.getElementById('cad-cpf').value),
+                rg: encriptar(document.getElementById('cad-rg').value),
+                nascimento: encriptar(document.getElementById('cad-nascimento').value),
+                mae: encriptar(document.getElementById('cad-mae').value),
+                telefone: encriptar(document.getElementById('cad-tel').value),
+                email: encriptar(document.getElementById('cad-email').value),
+                dataCadastro: new Date().toISOString(),
+                clinicaId: clinicaState.sessao.clinicaId 
+            };
 
-        const baseData = {
-            nome: encriptar(document.getElementById('cad-nome').value),
-            cpf: encriptar(document.getElementById('cad-cpf').value),
-            rg: encriptar(document.getElementById('cad-rg').value),
-            nascimento: encriptar(document.getElementById('cad-nascimento').value),
-            mae: encriptar(document.getElementById('cad-mae').value),
-            telefone: encriptar(document.getElementById('cad-tel').value),
-            email: encriptar(document.getElementById('cad-email').value),
-            dataCadastro: new Date().toISOString(),
-            clinicaId: clinicaState.sessao.clinicaId 
-        };
+            try {
+                if (tipo === 'paciente') {
+                    const dadosParaSalvar = {
+                        ...baseData,
+                        sangue: encriptar(document.getElementById('cad-sangue').value),
+                        alergias: encriptar(document.getElementById('cad-alergias').value),
+                        convenio: encriptar(document.getElementById('cad-convenio').value || 'Particular'),
+                        carteirinha: encriptar(document.getElementById('cad-carteirinha').value),
+                        emergencia: encriptar(document.getElementById('cad-emergencia').value),
+                        responsavel: encriptar(document.getElementById('cad-responsavel').value)
+                    };
 
-        try {
-            if (tipo === 'paciente') {
-                const dadosParaSalvar = {
-                    ...baseData,
-                    sangue: encriptar(document.getElementById('cad-sangue').value),
-                    alergias: encriptar(document.getElementById('cad-alergias').value),
-                    convenio: encriptar(document.getElementById('cad-convenio').value || 'Particular'),
-                    carteirinha: encriptar(document.getElementById('cad-carteirinha').value),
-                    emergencia: encriptar(document.getElementById('cad-emergencia').value),
-                    responsavel: encriptar(document.getElementById('cad-responsavel').value)
-                };
-
-                if (pacienteEmEdicaoId) {
-                    await updateDoc(doc(db, "pacientes", pacienteEmEdicaoId), dadosParaSalvar);
-                    showToast('Dados do paciente atualizados!', 'success');
+                    if (pacienteEmEdicaoId) {
+                        await updateDoc(doc(db, "pacientes", pacienteEmEdicaoId), dadosParaSalvar);
+                        showToast('Dados do paciente atualizados!', 'success');
+                    } else {
+                        dadosParaSalvar.evolucoes = [];
+                        await addDoc(collection(db, "pacientes"), dadosParaSalvar);
+                        showToast('Paciente salvo e criptografado com sucesso!', 'success');
+                    }
                 } else {
-                    dadosParaSalvar.evolucoes = [];
-                    await addDoc(collection(db, "pacientes"), dadosParaSalvar);
-                    showToast('Paciente salvo e criptografado com sucesso!', 'success');
+                    await addDoc(collection(db, "profissionais"), {
+                        ...baseData,
+                        conselho: encriptar(document.getElementById('cad-conselho').value),
+                        registro: encriptar(document.getElementById('cad-num-registro').value),
+                        especialidade: encriptar(document.getElementById('cad-especialidade').value),
+                        rqe: encriptar(document.getElementById('cad-rqe').value),
+                        vinculo: encriptar(document.getElementById('cad-vinculo').value)
+                    });
+                    showToast('Profissional salvo e criptografado com sucesso!', 'success');
                 }
-            } else {
-                await addDoc(collection(db, "profissionais"), {
-                    ...baseData,
-                    conselho: encriptar(document.getElementById('cad-conselho').value),
-                    registro: encriptar(document.getElementById('cad-num-registro').value),
-                    especialidade: encriptar(document.getElementById('cad-especialidade').value),
-                    rqe: encriptar(document.getElementById('cad-rqe').value),
-                    vinculo: encriptar(document.getElementById('cad-vinculo').value)
-                });
-                showToast('Profissional salvo e criptografado com sucesso!', 'success');
+
+                modalCadastro.classList.remove('active');
+                e.target.reset();
+                pacienteEmEdicaoId = null; 
+                
+                await carregarPacientes(); 
+                await carregarProfissionais();
+
+            } catch (error) {
+                console.error("Erro ao salvar no Firestore: ", error);
+                showToast('Erro de conexão ao salvar os dados.', 'error');
             }
-
-            modalCadastro.classList.remove('active');
-            e.target.reset();
-            pacienteEmEdicaoId = null; 
-            
-            await carregarPacientes(); 
-            await carregarProfissionais();
-
-        } catch (error) {
-            console.error("Erro ao salvar no Firestore: ", error);
-            showToast('Erro de conexão ao salvar os dados.', 'error');
-        } finally {
-            btnSalvar.innerHTML = textoBotaoOriginal;
-            btnSalvar.disabled = false;
-        }
+        });
     });
 
     document.getElementById('btn-fechar-pep').addEventListener('click', () => {
@@ -159,57 +151,49 @@ export function initPacientes() {
         
         const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
         const btnSalvar = e.target.querySelector('button[type="submit"]');
-        const textoBotaoOriginal = btnSalvar.innerHTML; 
-        
-        btnSalvar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Assinando...';
-        btnSalvar.disabled = true;
 
-        const textoProntuario = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
+        await comEstadoDeCarregamento(btnSalvar, 'Assinando...', async () => {
+            const textoProntuario = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
     **Exame Físico:** ${document.getElementById('pep-exame-fisico').value}
     **Diagnóstico:** ${document.getElementById('pep-diagnostico').value || 'N/A'}
     **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim(); 
 
-        const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
-        const textoCriptografado = CryptoJS.AES.encrypt(textoProntuario, chaveSecreta).toString();
+            const textoCriptografado = encriptar(textoProntuario);
 
-        const profId = document.getElementById('pep-profissional').value;
-        const profissional = clinicaState.profissionais.find(p => String(p.id) === String(profId));
-        
-        if (!profissional) {
-            showToast('Selecione um profissional para assinar a ficha.', 'warning');
-            btnSalvar.innerHTML = textoBotaoOriginal;
-            btnSalvar.disabled = false;
-            return;
-        }
-
-        const novaEvolucao = {
-            data: new Date().toLocaleString('pt-BR'),
-            texto: textoCriptografado,
-            assinatura: `Assinado digitalmente por ${profissional.nome} | ${profissional.conselho}: ${profissional.registro}`
-        };
-
-        if (!paciente.evolucoes) paciente.evolucoes = [];
-        paciente.evolucoes.push(novaEvolucao);
-
-        try {
-            const pacienteRef = doc(db, "pacientes", paciente.id);
-            await updateDoc(pacienteRef, { evolucoes: paciente.evolucoes });
+            const profId = document.getElementById('pep-profissional').value;
+            const profissional = clinicaState.profissionais.find(p => String(p.id) === String(profId));
             
-            renderizarEvolucoes(paciente);
-            e.target.reset(); 
-            
-            if (clinicaState.sessao.perfil === 'Doutor(a)') {
-                document.getElementById('pep-profissional').value = profId;
+            if (!profissional) {
+                showToast('Selecione um profissional para assinar a ficha.', 'warning');
+                return;
             }
-            showToast('Evolução salva no Prontuário com sucesso!');
-        } catch (error) {
-            console.error("Erro ao salvar evolução: ", error);
-            showToast('Erro de conexão ao salvar ficha.', 'error');
-            paciente.evolucoes.pop(); 
-        } finally {
-            btnSalvar.innerHTML = textoBotaoOriginal;
-            btnSalvar.disabled = false;
-        }
+
+            const novaEvolucao = {
+                data: new Date().toLocaleString('pt-BR'),
+                texto: textoCriptografado,
+                assinatura: `Assinado digitalmente por ${profissional.nome} | ${profissional.conselho}: ${profissional.registro}`
+            };
+
+            if (!paciente.evolucoes) paciente.evolucoes = [];
+            paciente.evolucoes.push(novaEvolucao);
+
+            try {
+                const pacienteRef = doc(db, "pacientes", paciente.id);
+                await updateDoc(pacienteRef, { evolucoes: paciente.evolucoes });
+                
+                renderizarEvolucoes(paciente);
+                e.target.reset(); 
+                
+                if (clinicaState.sessao.perfil === 'Doutor(a)') {
+                    document.getElementById('pep-profissional').value = profId;
+                }
+                showToast('Evolução salva no Prontuário com sucesso!');
+            } catch (error) {
+                console.error("Erro ao salvar evolução: ", error);
+                showToast('Erro de conexão ao salvar ficha.', 'error');
+                paciente.evolucoes.pop(); 
+            }
+        });
     });
 
     // ==========================================
@@ -409,17 +393,9 @@ export function abrirProntuario(idPaciente) {
 
 function renderizarEvolucoes(paciente) {
     const container = document.getElementById('pep-timeline');
-    const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
     
     container.innerHTML = paciente.evolucoes.slice().reverse().map(evo => {
-        let textoDescriptografado = "";
-        try {
-            const bytes = CryptoJS.AES.decrypt(evo.texto, chaveSecreta);
-            textoDescriptografado = bytes.toString(CryptoJS.enc.Utf8);
-            if (!textoDescriptografado) textoDescriptografado = evo.texto;
-        } catch (e) {
-            textoDescriptografado = evo.texto; 
-        }
+        const textoDescriptografado = decriptar(evo.texto);
 
         let textoFormatado = escapeHTML(textoDescriptografado)
             .replace(/\n/g, '<br>')
@@ -502,19 +478,6 @@ export async function carregarPacientes() {
         );
         const querySnapshot = await getDocs(q);
 
-        const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
-        
-        const decriptar = (textoCripto) => {
-            if (!textoCripto) return '';
-            try {
-                const bytes = CryptoJS.AES.decrypt(textoCripto, chaveSecreta);
-                const original = bytes.toString(CryptoJS.enc.Utf8);
-                return original || textoCripto; 
-            } catch(e) {
-                return textoCripto;
-            }
-        };
-
         clinicaState.pacientes = [];
         querySnapshot.forEach((doc) => {
             const d = doc.data();
@@ -551,19 +514,6 @@ export async function carregarProfissionais() {
         );
         const querySnapshot = await getDocs(q);
         
-        const chaveSecreta = "GestaoPRO_" + clinicaState.sessao.clinicaId;
-        
-        const decriptar = (textoCripto) => {
-            if (!textoCripto) return '';
-            try {
-                const bytes = CryptoJS.AES.decrypt(textoCripto, chaveSecreta);
-                const original = bytes.toString(CryptoJS.enc.Utf8);
-                return original || textoCripto;
-            } catch(e) {
-                return textoCripto;
-            }
-        };
-
         clinicaState.profissionais = [];
         querySnapshot.forEach((doc) => {
             const d = doc.data();
