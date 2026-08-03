@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { showToast, comEstadoDeCarregamento, escapeHTML } from './Ferramentas.js';
+import { showToast, comEstadoDeCarregamento, escapeHTML, confirmarAcao } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, where } from './firebase.js';
 
 const appointmentTimes = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
@@ -153,7 +153,7 @@ export function initAgenda() {
             const btnCancelar = e.target.closest('.btn-cancelar-consulta');
             if (btnCancelar) {
                 e.stopPropagation();
-                if (confirm('Deseja realmente cancelar esta consulta?')) {
+                if (await confirmarAcao('Deseja realmente cancelar esta consulta?', { titulo: 'Cancelar consulta', textoConfirmar: 'Cancelar consulta' })) {
                     const idAgendamento = btnCancelar.getAttribute('data-id');
                     try {
                         await deleteDoc(doc(db, "agendamentos", idAgendamento));
@@ -169,7 +169,7 @@ export function initAgenda() {
             const btnRemoverBloqueio = e.target.closest('.btn-remover-bloqueio');
             if (btnRemoverBloqueio) {
                 e.stopPropagation();
-                if (confirm('Deseja remover este bloqueio e liberar o horário?')) {
+                if (await confirmarAcao('Deseja remover este bloqueio e liberar o horário?', { titulo: 'Remover bloqueio', textoConfirmar: 'Remover', perigoso: false })) {
                     const idBloqueio = btnRemoverBloqueio.getAttribute('data-id');
                     try {
                         await deleteDoc(doc(db, "bloqueios_agenda", idBloqueio));

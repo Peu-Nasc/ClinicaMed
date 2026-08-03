@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { formatCurrency, showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML } from './Ferramentas.js';
+import { formatCurrency, showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML, confirmarAcao } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let lancamentoEmEdicaoId = null;
@@ -133,7 +133,7 @@ export function initFinanceiro() {
 
             if (btnExcluir) {
                 const idFin = btnExcluir.getAttribute('data-id');
-                if (confirm('Atenção: Deseja realmente excluir este lançamento financeiro? Essa ação recalculará a sua DRE imediatamente.')) {
+                if (await confirmarAcao('Deseja realmente excluir este lançamento financeiro? Essa ação recalculará a sua DRE imediatamente.', { titulo: 'Excluir lançamento', textoConfirmar: 'Excluir' })) {
                     try {
                         await deleteDoc(doc(db, "financeiro", idFin));
                         showToast('Lançamento excluído com sucesso.', 'success');

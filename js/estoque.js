@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML } from './Ferramentas.js';
+import { showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML, confirmarAcao } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let itemEmEdicaoId = null;
@@ -219,7 +219,7 @@ if (stockTableBody) {
 
         if (btnExcluir) {
             const idEst = btnExcluir.getAttribute('data-id');
-            if (confirm('Atenção: Deseja realmente excluir este lote do inventário?')) {
+            if (await confirmarAcao('Deseja realmente excluir este lote do inventário?', { titulo: 'Excluir lote', textoConfirmar: 'Excluir' })) {
                 try {
                     await deleteDoc(doc(db, "estoque", idEst));
                     showToast('Item excluído com sucesso.', 'success');

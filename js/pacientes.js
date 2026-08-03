@@ -1,5 +1,5 @@
 import { clinicaState } from './state.js';
-import { showToast, escapeHTML, encriptar, decriptar, comEstadoDeCarregamento } from './Ferramentas.js';
+import { showToast, escapeHTML, encriptar, decriptar, comEstadoDeCarregamento, confirmarAcao } from './Ferramentas.js';
 import { atualizarAgenda } from './agenda.js';
 
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
@@ -210,7 +210,7 @@ export function initPacientes() {
 
             if (btnExcluir) {
                 const idPac = btnExcluir.getAttribute('data-id');
-                if (confirm('Atenção: Deseja excluir permanentemente este paciente?')) {
+                if (await confirmarAcao('Deseja excluir permanentemente este paciente? Todo o histórico de prontuário será perdido.', { titulo: 'Excluir paciente', textoConfirmar: 'Excluir' })) {
                     try {
                         await deleteDoc(doc(db, "pacientes", idPac));
                         showToast('Paciente excluído do sistema.', 'success');
@@ -255,7 +255,7 @@ export function initPacientes() {
             const btn = e.target.closest('.btn-excluir-prof');
             if (btn) {
                 const idProf = btn.getAttribute('data-id');
-                if(confirm('Deseja remover este profissional do sistema?')) {
+                if (await confirmarAcao('Deseja remover este profissional do sistema?', { titulo: 'Remover profissional', textoConfirmar: 'Remover' })) {
                     try {
                         await deleteDoc(doc(db, "profissionais", idProf));
                         showToast('Profissional removido.', 'success');

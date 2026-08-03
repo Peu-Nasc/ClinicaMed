@@ -727,6 +727,22 @@
         </div>
     </div>
 
+    <!-- ================== MODAL DE CONFIRMAÇÃO (substitui o confirm() nativo do navegador) ================== -->
+    <div id="modal-confirmacao" class="modal-overlay">
+        <div class="modal-content modal-sm">
+            <header class="modal-header">
+                <h2 id="confirmacao-titulo">Confirmar ação</h2>
+            </header>
+            <div class="modal-body">
+                <p id="confirmacao-mensagem" class="mb-20"></p>
+                <div class="flex-row gap-10 confirmacao-actions">
+                    <button type="button" class="btn-secondary" id="btn-confirmacao-cancelar">Cancelar</button>
+                    <button type="button" class="btn-primary danger" id="btn-confirmacao-confirmar">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" class="toast-container"></div>
     <script src="https://unpkg.com/imask"></script>
     

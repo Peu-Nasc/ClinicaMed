@@ -56,6 +56,58 @@ export function decriptar(textoCripto) {
 }
 
 // ========================================================
+// MODAL DE CONFIRMAÇÃO (substitui o confirm() nativo do
+// navegador por um modal com a cara do sistema)
+// ========================================================
+let resolverConfirmacao = null;
+
+export function initConfirmacao() {
+    const modal = document.getElementById('modal-confirmacao');
+    const btnCancelar = document.getElementById('btn-confirmacao-cancelar');
+    const btnConfirmar = document.getElementById('btn-confirmacao-confirmar');
+    if (!modal || !btnCancelar || !btnConfirmar) return;
+
+    const fechar = (resultado) => {
+        modal.classList.remove('active');
+        if (resolverConfirmacao) {
+            resolverConfirmacao(resultado);
+            resolverConfirmacao = null;
+        }
+    };
+
+    btnCancelar.addEventListener('click', () => fechar(false));
+    btnConfirmar.addEventListener('click', () => fechar(true));
+
+    // Clicar fora do card ou apertar ESC cancela, igual ao confirm() nativo
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) fechar(false);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) fechar(false);
+    });
+}
+
+// Uso: if (await confirmarAcao('Deseja excluir?')) { ... }
+// opcoes: { titulo, textoConfirmar, perigoso } - perigoso (default true) deixa o botão de confirmar vermelho
+export function confirmarAcao(mensagem, opcoes = {}) {
+    const modal = document.getElementById('modal-confirmacao');
+    const elMensagem = document.getElementById('confirmacao-mensagem');
+    const elTitulo = document.getElementById('confirmacao-titulo');
+    const btnConfirmar = document.getElementById('btn-confirmacao-confirmar');
+
+    elMensagem.textContent = mensagem;
+    elTitulo.textContent = opcoes.titulo || 'Confirmar ação';
+    btnConfirmar.textContent = opcoes.textoConfirmar || 'Confirmar';
+    btnConfirmar.classList.toggle('danger', opcoes.perigoso !== false);
+
+    modal.classList.add('active');
+
+    return new Promise((resolve) => {
+        resolverConfirmacao = resolve;
+    });
+}
+
+// ========================================================
 // ESTADO DE CARREGAMENTO DE BOTÃO (antes repetido em todo
 // formulário: guardar innerHTML, trocar por spinner, desabilitar,
 // e no final restaurar - agora é uma linha só)
