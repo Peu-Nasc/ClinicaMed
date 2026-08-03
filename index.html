@@ -112,6 +112,13 @@
                     <h3 class="form-section-title section-subtitle" id="dash-titulo-financeiro">Performance Financeira (Últimos 30 Dias)</h3>
                     <div class="card-grid mb-20" id="dash-mini-dash"></div>
 
+                    <div class="card mb-20" style="padding: 20px; border-left: none;">
+                        <h4 style="color: var(--text-main); font-size: 1.05rem; margin-bottom: 15px;"><i class="fa-solid fa-chart-area icon-primary"></i> Evolução de Saldo Diário</h4>
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="dreChart"></canvas>
+                        </div>
+                    </div>
+
                     <h3 class="form-section-title section-subtitle spaced">Raio-X Operacional</h3>
                     <div class="dashboard-grid">
                         
@@ -746,8 +753,9 @@
     <div id="toast-container" class="toast-container"></div>
     <script src="https://unpkg.com/imask"></script>
     
-    <!-- AQUI ESTÁ O SEGREDO: Importando a biblioteca CryptoJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script type="module" src="js/main.js"></script>
 </body>

@@ -3,6 +3,7 @@ import { formatCurrency, showToast, renderCardGrid, comEstadoDeCarregamento, esc
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
 let lancamentoEmEdicaoId = null;
+let dreChartInstance = null;
 
 export function initFinanceiro() {
     // Monta os cards dos dois mini-dashboards controlados por este módulo
@@ -312,6 +313,102 @@ export function calcularDRE() {
             `).join('');
         }
     }
+
+    // ==========================================
+    // NOVO: ATUALIZAR O GRÁFICO (Estilo App de Banco)
+    // ==========================================
+    const ctx = document.getElementById('dreChart');
+    if (ctx) {
+        if (dreChartInstance) {
+            dreChartInstance.destroy();
+        }
+
+        // 1. Agrupar os valores líquidos por data
+        const historicoPorData = {};
+        const lancamentosFiltrados = clinicaState.financeiro.lancamentos.filter(l => dataDentroDoFiltro(l.competencia));
+        
+        // Ordena por data (da mais antiga para a mais nova)
+        lancamentosFiltrados.sort((a, b) => a.competencia.localeCompare(b.competencia));
+
+        lancamentosFiltrados.forEach(l => {
+            if (l.status === 'Recebido/Pago') {
+                const dataFormatada = l.competencia.split('-').reverse().join('/'); // Formato DD/MM/AAAA
+                if (!historicoPorData[dataFormatada]) historicoPorData[dataFormatada] = 0;
+                
+                if (l.tipo === 'Receita') historicoPorData[dataFormatada] += l.valor;
+                else historicoPorData[dataFormatada] -= l.valor;
+            }
+        });
+
+        // 2. Separar as chaves (Datas) e os valores (Saldos)
+        const labelsData = Object.keys(historicoPorData);
+        const valoresSaldo = Object.values(historicoPorData);
+
+        // Prevenção: Se não houver dados, insere um valor zerado para o gráfico não sumir
+        if (labelsData.length === 0) {
+            labelsData.push('Sem Movimentação');
+            valoresSaldo.push(0);
+        }
+
+        // 3. Criar o Efeito de Gradiente (Sombreado embaixo da linha)
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(15, 76, 117, 0.4)'); // Azul primário com 40% de opacidade
+        gradient.addColorStop(1, 'rgba(15, 76, 117, 0.0)'); // Fica transparente no fundo
+
+        dreChartInstance = new Chart(ctx, {
+            type: 'line', // Muda para Linha
+            data: {
+                labels: labelsData,
+                datasets: [{
+                    label: 'Saldo Líquido do Dia (R$)',
+                    data: valoresSaldo,
+                    borderColor: '#0F4C75', // Cor da linha (Azul Primário do CSS)
+                    backgroundColor: gradient, // O sombreado Efeito Banco
+                    borderWidth: 3,
+                    tension: 0.4, // Isso faz a linha ficar curvada e suave (Efeito Onda)
+                    fill: true, // Preenche o espaço debaixo da linha
+                    pointBackgroundColor: '#0F4C75',
+                    pointRadius: 4, // Tamanho da bolinha ao passar o mouse
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return ' R$ ' + context.parsed.y.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false } // Remove as linhas verticais para ficar mais clean
+                    },
+                    y: {
+                        grid: { color: '#E2E8F0' }, // Linhas horizontais bem sutis
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    }
+
 }
 
 // Filtra os lançamentos pela barra de pesquisa e pelo dropdown de meses
