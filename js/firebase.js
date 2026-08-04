@@ -1,6 +1,6 @@
 // Importando as funções da versão 12.16.0
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import { clinicaState } from './state.js';
 
@@ -19,6 +19,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// PERSISTÊNCIA POR ABA: por padrão o Firebase guarda a sessão no localStorage,
+// que é compartilhado entre todas as abas do navegador - por isso logar como
+// outro perfil numa aba nova trocava o usuário logado em todas as outras.
+// Com sessionStorage, cada aba tem sua própria sessão, independente das demais.
+// Efeito colateral: ao fechar a aba, a sessão se perde (precisa logar de novo
+// na próxima vez que abrir o sistema), diferente do comportamento anterior.
+setPersistence(auth, browserSessionPersistence).catch((error) => {
+    console.error("Erro ao configurar persistência de sessão: ", error);
+});
 
 // Exportando os métodos que a tela de login e as tabelas vão usar
 export { signInWithEmailAndPassword, signOut, onAuthStateChanged };
