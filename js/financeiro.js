@@ -4,6 +4,16 @@ import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, wher
 
 let lancamentoEmEdicaoId = null;
 let dreChartInstance = null;
+let custoFixoEmEdicaoId = null;
+
+const CATEGORIAS_CUSTO_FIXO = {
+    'Aluguel': 'Aluguel',
+    'Salarios': 'Salários',
+    'Contas': 'Água / Luz / Internet',
+    'Insumos': 'Insumos Recorrentes',
+    'Manutencao': 'Manutenção',
+    'Outros': 'Outros'
+};
 
 export function initFinanceiro() {
     // Monta os cards dos dois mini-dashboards controlados por este módulo
@@ -173,6 +183,169 @@ export function initFinanceiro() {
         lancamentoEmEdicaoId = null; 
         document.getElementById('form-financeiro').reset();
     });
+
+    initCustosFixos();
+}
+
+// ========================================================
+// CUSTOS FIXOS (aluguel, salários, insumos recorrentes)
+// ========================================================
+function initCustosFixos() {
+    renderCardGrid('custo-fixo-mini-dash', [
+        { id: 'custo-fixo-stat-total', label: 'Total Mensal Fixo', initial: 'R$ 0,00', variant: 'danger', valueClass: 'negativo' },
+        { id: 'custo-fixo-stat-qtd', label: 'Custos Cadastrados', initial: '0', variant: 'primary' }
+    ]);
+
+    const modalCustoFixo = document.getElementById('modal-custo-fixo');
+
+    document.getElementById('btn-abrir-modal-custo-fixo').addEventListener('click', () => {
+        modalCustoFixo.classList.add('active');
+    });
+
+    document.getElementById('btn-close-custo-fixo').addEventListener('click', () => {
+        modalCustoFixo.classList.remove('active');
+        custoFixoEmEdicaoId = null;
+        document.getElementById('form-custo-fixo').reset();
+    });
+
+    document.getElementById('form-custo-fixo').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const btnSalvar = e.target.querySelector('button[type="submit"]');
+
+        await comEstadoDeCarregamento(btnSalvar, 'Salvando...', async () => {
+            let valorInput = document.getElementById('custo-valor').value;
+            if (typeof valorInput === 'string') {
+                valorInput = valorInput.replace(/\./g, '').replace(',', '.');
+            }
+
+            try {
+                const dadosParaSalvar = {
+                    descricao: document.getElementById('custo-descricao').value,
+                    categoria: document.getElementById('custo-categoria').value,
+                    diaVencimento: parseInt(document.getElementById('custo-dia-vencimento').value),
+                    valor: parseFloat(valorInput),
+                    clinicaId: clinicaState.sessao.clinicaId
+                };
+
+                if (custoFixoEmEdicaoId) {
+                    await updateDoc(doc(db, "custosFixos", custoFixoEmEdicaoId), dadosParaSalvar);
+                    showToast('Custo fixo atualizado com sucesso.', 'success');
+                } else {
+                    await addDoc(collection(db, "custosFixos"), dadosParaSalvar);
+                    showToast('Custo fixo cadastrado com sucesso.', 'success');
+                }
+
+                modalCustoFixo.classList.remove('active');
+                e.target.reset();
+                custoFixoEmEdicaoId = null;
+
+                await carregarCustosFixos();
+
+            } catch (error) {
+                console.error("Erro nos custos fixos: ", error);
+                showToast('Falha ao registrar custo fixo.', 'error');
+            }
+        });
+    });
+
+    const custoFixoTableBody = document.getElementById('custo-fixo-table-body');
+    if (custoFixoTableBody) {
+        custoFixoTableBody.addEventListener('click', async (e) => {
+            const btnEditar = e.target.closest('.btn-editar-custo-fixo');
+            const btnExcluir = e.target.closest('.btn-excluir-custo-fixo');
+
+            if (btnExcluir) {
+                const idCusto = btnExcluir.getAttribute('data-id');
+                if (await confirmarAcao('Deseja realmente excluir este custo fixo?', { titulo: 'Excluir custo fixo', textoConfirmar: 'Excluir' })) {
+                    try {
+                        await deleteDoc(doc(db, "custosFixos", idCusto));
+                        showToast('Custo fixo excluído com sucesso.', 'success');
+                        await carregarCustosFixos();
+                    } catch (error) {
+                        console.error("Erro ao excluir custo fixo: ", error);
+                        showToast('Falha ao excluir custo fixo.', 'error');
+                    }
+                }
+            }
+
+            if (btnEditar) {
+                const idCusto = btnEditar.getAttribute('data-id');
+                const custo = clinicaState.financeiro.custosFixos.find(c => String(c.id) === String(idCusto));
+
+                if (custo) {
+                    custoFixoEmEdicaoId = custo.id;
+
+                    document.getElementById('custo-descricao').value = custo.descricao;
+                    document.getElementById('custo-categoria').value = custo.categoria;
+                    document.getElementById('custo-dia-vencimento').value = custo.diaVencimento;
+                    document.getElementById('custo-valor').value = custo.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+                    modalCustoFixo.classList.add('active');
+                }
+            }
+        });
+    }
+}
+
+export function atualizarTabelaCustosFixos() {
+    const corpoTabela = document.getElementById('custo-fixo-table-body');
+    if (!corpoTabela) return;
+
+    const custos = clinicaState.financeiro.custosFixos.slice().sort((a, b) => a.diaVencimento - b.diaVencimento);
+    let totalMensal = 0;
+
+    corpoTabela.innerHTML = custos.map(c => {
+        totalMensal += c.valor;
+
+        return `<tr>
+            <td><strong>${escapeHTML(c.descricao)}</strong></td>
+            <td><span class="badge info">${escapeHTML(CATEGORIAS_CUSTO_FIXO[c.categoria] || c.categoria)}</span></td>
+            <td>Todo dia ${c.diaVencimento}</td>
+            <td class="negativo valor-lancamento">${formatCurrency(c.valor)}</td>
+            <td>
+                <div class="row-actions">
+                    <button class="btn-action btn-edit btn-editar-custo-fixo" data-id="${c.id}" title="Editar">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="btn-action btn-delete btn-excluir-custo-fixo" data-id="${c.id}" title="Excluir">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    const elTotal = document.getElementById('custo-fixo-stat-total');
+    const elQtd = document.getElementById('custo-fixo-stat-qtd');
+
+    if (elTotal) elTotal.textContent = formatCurrency(totalMensal);
+    if (elQtd) elQtd.textContent = custos.length;
+}
+
+export async function carregarCustosFixos() {
+    try {
+        const q = query(
+            collection(db, "custosFixos"),
+            where("clinicaId", "==", clinicaState.sessao.clinicaId)
+        );
+        const querySnapshot = await getDocs(q);
+
+        clinicaState.financeiro.custosFixos = [];
+
+        querySnapshot.forEach((doc) => {
+            clinicaState.financeiro.custosFixos.push({
+                ...doc.data(),
+                id: String(doc.id)
+            });
+        });
+
+        atualizarTabelaCustosFixos();
+
+    } catch (error) {
+        console.error("Erro ao buscar custos fixos: ", error);
+        showToast('Erro ao carregar os custos fixos.', 'error');
+    }
 }
 
 // NOVA DRE INTELIGENTE (Com filtros de data para o Dashboard principal)
@@ -311,6 +484,66 @@ export function calcularDRE() {
                     </div>
                 </div>
             `).join('');
+        }
+    }
+
+    // Painel "Custos Fixos do Mês" - é uma PREVISÃO (o que está cadastrado
+    // em Custos Fixos), não entra na conta de Despesas/Lucro acima, que
+    // reflete só o que foi de fato lançado no Livro Caixa.
+    const dashCustosFixos = document.getElementById('dash-list-custos-fixos');
+    const dashCustosFixosTotal = document.getElementById('dash-custos-fixos-total');
+    if (dashCustosFixos) {
+        const custos = clinicaState.financeiro.custosFixos.slice().sort((a, b) => a.diaVencimento - b.diaVencimento);
+
+        if (custos.length === 0) {
+            dashCustosFixos.innerHTML = '<p style="color: var(--text-light); font-size: 0.9rem; text-align: center; padding: 20px;">Nenhum custo fixo cadastrado.</p>';
+        } else {
+            dashCustosFixos.innerHTML = custos.map(c => `
+                <div class="dash-list-item warning">
+                    <div>
+                        <strong>${escapeHTML(c.descricao)}</strong><br>
+                        <span style="color: var(--text-light); font-size: 0.75rem;"><i class="fa-solid fa-calendar-day"></i> Vence dia ${c.diaVencimento}</span>
+                    </div>
+                    <strong style="color: var(--text-main); font-size: 0.95rem;">${formatCurrency(c.valor)}</strong>
+                </div>
+            `).join('');
+        }
+
+        if (dashCustosFixosTotal) {
+            const totalPrevisto = custos.reduce((soma, c) => soma + c.valor, 0);
+            dashCustosFixosTotal.innerHTML = `<span style="color: var(--text-light); font-weight: 600;">Total previsto/mês</span> <span>${formatCurrency(totalPrevisto)}</span>`;
+        }
+    }
+
+    // Painel "Revisões Pendentes" - pacientes com data de retorno marcada
+    // pelo médico na evolução (campo "Retornar em X dias"). Mostra quem já
+    // venceu (atrasado) e quem vence nos próximos 7 dias.
+    const dashRevisoes = document.getElementById('dash-list-revisoes');
+    if (dashRevisoes) {
+        const hojeIsoRevisao = getIsoDate(new Date());
+        const limiteRevisaoObj = new Date();
+        limiteRevisaoObj.setDate(limiteRevisaoObj.getDate() + 7);
+        const limiteRevisaoIso = getIsoDate(limiteRevisaoObj);
+
+        const pacientesComRetorno = clinicaState.pacientes
+            .filter(p => p.proximoRetorno && p.proximoRetorno <= limiteRevisaoIso)
+            .sort((a, b) => a.proximoRetorno.localeCompare(b.proximoRetorno));
+
+        if (pacientesComRetorno.length === 0) {
+            dashRevisoes.innerHTML = '<p style="color: var(--text-light); font-size: 0.9rem; text-align: center; padding: 20px;">Nenhuma revisão pendente nos próximos 7 dias.</p>';
+        } else {
+            dashRevisoes.innerHTML = pacientesComRetorno.map(p => {
+                const atrasado = p.proximoRetorno < hojeIsoRevisao;
+                const dataExibicao = p.proximoRetorno.split('-').reverse().join('/');
+                return `
+                <div class="dash-list-item ${atrasado ? 'danger' : 'warning'}">
+                    <div>
+                        <strong>${escapeHTML(p.nome)}</strong><br>
+                        <span style="color: var(--text-light); font-size: 0.75rem;"><i class="fa-solid fa-calendar-day"></i> ${atrasado ? 'Venceu em' : 'Retorno em'} ${dataExibicao}</span>
+                    </div>
+                    ${atrasado ? '<span class="badge danger bg-danger">Atrasado</span>' : ''}
+                </div>`;
+            }).join('');
         }
     }
 

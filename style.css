@@ -132,6 +132,21 @@ h1, h2, h3, h4 { letter-spacing: -0.01em; }
     font-weight: 600;
 }
 
+.menu-badge {
+    margin-left: auto;
+    background: #dc3545;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    display: inline-flex;
+}
+
 .user-profile {
     padding: 20px;
     border-top: 1px solid var(--border-color);
@@ -1421,6 +1436,18 @@ summary.timeline-meta:hover {
 
 .dash-list-item.warning { border-left-color: #ffc107; background: #fffdf5; }
 .dash-list-item.danger { border-left-color: #dc3545; background: #fff5f5; }
+
+.dash-panel-footer {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
 
 .stat-container {
     display: flex;

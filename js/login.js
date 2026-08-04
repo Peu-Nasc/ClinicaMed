@@ -2,8 +2,9 @@ import { showToast, comEstadoDeCarregamento } from './Ferramentas.js';
 import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut, db, collection, query, where, getDocs, addDoc } from './firebase.js';
 import { clinicaState } from './state.js'; // Adicione esta linha!
 import { carregarPacientes, carregarProfissionais } from './pacientes.js';
-import { carregarAgendamentos, carregarBloqueios } from './agenda.js';
-import { carregarFinanceiro } from './financeiro.js';
+import { carregarAgendamentos, carregarBloqueios, verificarAlertasAgendamento } from './agenda.js';
+import { carregarFinanceiro, carregarCustosFixos } from './financeiro.js';
+import { escutarNotificacoes } from './notificacoes.js';
 import { carregarEstoque } from './estoque.js';
 
 
@@ -33,10 +34,15 @@ export function initAuth() {
                 aplicarPermissoesDeTela(); 
 
                 // AGORA SIM, com a clínica salva na memória, ele carrega os dados certos!
-                await carregarPacientes();
                 await carregarProfissionais();
                 await carregarAgendamentos();
                 await carregarBloqueios();
+                verificarAlertasAgendamento();
+                escutarNotificacoes();
+                // Pacientes carrega depois da agenda: o status "Ativo/Inativo" da
+                // tabela é calculado a partir da última consulta de cada paciente.
+                await carregarPacientes();
+                await carregarCustosFixos();
                 await carregarFinanceiro();
                 await carregarEstoque();
                 

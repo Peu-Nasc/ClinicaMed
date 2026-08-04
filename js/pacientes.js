@@ -1,6 +1,7 @@
 import { clinicaState } from './state.js';
 import { showToast, escapeHTML, encriptar, decriptar, comEstadoDeCarregamento, confirmarAcao } from './Ferramentas.js';
 import { atualizarAgenda } from './agenda.js';
+import { criarNotificacao } from './notificacoes.js';
 
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
 
@@ -177,9 +178,37 @@ export function initPacientes() {
             if (!paciente.evolucoes) paciente.evolucoes = [];
             paciente.evolucoes.push(novaEvolucao);
 
+            // Se o médico informou "retornar em X dias", calcula a data e
+            // grava no paciente (fora do texto criptografado, pra poder
+            // usar direto num painel de "Revisões Pendentes" no Dashboard)
+            const diasRetornoInput = document.getElementById('pep-retorno-dias').value;
+            const dadosAtualizados = { evolucoes: paciente.evolucoes };
+
+            if (diasRetornoInput) {
+                const dataRetorno = new Date();
+                dataRetorno.setDate(dataRetorno.getDate() + parseInt(diasRetornoInput));
+                const isoRetorno = `${dataRetorno.getFullYear()}-${String(dataRetorno.getMonth() + 1).padStart(2, '0')}-${String(dataRetorno.getDate()).padStart(2, '0')}`;
+                paciente.proximoRetorno = isoRetorno;
+                dadosAtualizados.proximoRetorno = isoRetorno;
+            }
+
             try {
                 const pacienteRef = doc(db, "pacientes", paciente.id);
-                await updateDoc(pacienteRef, { evolucoes: paciente.evolucoes });
+                await updateDoc(pacienteRef, dadosAtualizados);
+
+                // Se um retorno foi marcado, avisa a recepção AGORA MESMO -
+                // não espera o paciente entrar na lista de "atrasados" lá na
+                // frente, a pendência de agendar já nasce na hora certa.
+                if (diasRetornoInput) {
+                    const dataExibicao = paciente.proximoRetorno.split('-').reverse().join('/');
+                    await criarNotificacao({
+                        tipo: 'retorno_pendente',
+                        titulo: `Agendar retorno: ${paciente.nome}`,
+                        mensagem: `${profissional.nome} pediu retorno para ${dataExibicao} (em ${diasRetornoInput} dia(s)).`,
+                        pacienteId: paciente.id,
+                        pacienteNome: paciente.nome
+                    });
+                }
                 
                 renderizarEvolucoes(paciente);
                 e.target.reset(); 
@@ -439,15 +468,40 @@ export function renderizarResumoPacienteAtivo() {
     }
 }
 
+// ==========================================
+// CADASTRO ATIVO DO PACIENTE (automático, com base na última consulta)
+// ==========================================
+const MESES_PARA_INATIVIDADE = 6;
+
+function obterStatusAtividade(pacienteId) {
+    const consultas = clinicaState.agenda.agendamentos.filter(a => String(a.pacId) === String(pacienteId));
+
+    if (consultas.length === 0) {
+        return { texto: 'Novo', classe: 'info' };
+    }
+
+    const ultimaData = consultas.reduce((maisRecente, a) => a.data > maisRecente ? a.data : maisRecente, consultas[0].data);
+
+    const limite = new Date();
+    limite.setMonth(limite.getMonth() - MESES_PARA_INATIVIDADE);
+    const limiteIso = limite.toISOString().split('T')[0];
+
+    return ultimaData >= limiteIso
+        ? { texto: 'Ativo', classe: 'success' }
+        : { texto: 'Inativo', classe: 'warning' };
+}
+
 export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
     const patientListBody = document.getElementById('patient-table-body-list');
     if (patientListBody) {
-        patientListBody.innerHTML = lista.map(p => 
-            `<tr>
+        patientListBody.innerHTML = lista.map(p => {
+            const status = obterStatusAtividade(p.id);
+            return `<tr>
                 <td><strong>${escapeHTML(p.nome)}</strong></td>
                 <td>${escapeHTML(p.cpf)}</td>
                 <td>${escapeHTML(p.convenio)}</td>
                 <td style="color:red">${p.alergias ? escapeHTML(p.alergias) : '-'}</td>
+                <td><span class="badge ${status.classe}" title="Baseado na última consulta agendada">${status.texto}</span></td>
                 <td>
                     <div class="row-actions">
                         <button class="btn-action btn-abrir-prontuario" data-id="${p.id}" title="Acessar Ficha">
@@ -461,8 +515,8 @@ export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
                         </button>
                     </div>
                 </td>
-            </tr>`
-        ).join('');
+            </tr>`;
+        }).join('');
     }
     renderizarResumoPacienteAtivo();
 }

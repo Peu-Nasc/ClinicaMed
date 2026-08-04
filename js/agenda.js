@@ -13,6 +13,25 @@ function obterBloqueio(profId, data, hora) {
     });
 }
 
+export function verificarAlertasAgendamento() {
+    const getIsoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const hojeIso = getIsoDate(new Date());
+    const amanhaObj = new Date();
+    amanhaObj.setDate(amanhaObj.getDate() + 1);
+    const amanhaIso = getIsoDate(amanhaObj);
+
+    const consultasHoje = clinicaState.agenda.agendamentos.filter(a => a.data === hojeIso);
+    const consultasAmanha = clinicaState.agenda.agendamentos.filter(a => a.data === amanhaIso);
+
+    if (consultasHoje.length > 0) {
+        showToast(`Você tem ${consultasHoje.length} consulta(s) agendada(s) para hoje.`, 'warning');
+    }
+    if (consultasAmanha.length > 0) {
+        showToast(`Você tem ${consultasAmanha.length} consulta(s) agendada(s) para amanhã.`, 'warning');
+    }
+}
+
 export function initAgenda() {
     const modalAgenda = document.getElementById('modal-agendamento');
     const inputDataAgenda = document.getElementById('data-agenda');

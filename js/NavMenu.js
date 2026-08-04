@@ -2,6 +2,7 @@
 import { calcularDRE } from './financeiro.js';
 import { atualizarAgenda } from './agenda.js';
 import { verificarAlertasEstoque } from './estoque.js';
+import { atualizarListaNotificacoes } from './notificacoes.js';
 
 export function initUI() {
     const sidebar = document.getElementById('sidebar');
@@ -39,6 +40,7 @@ export function initUI() {
             if (target === 'estoque') verificarAlertasEstoque();
             if (target === 'dashboard') calcularDRE();
             if (target === 'agenda') atualizarAgenda();
+            if (target === 'notificacoes') atualizarListaNotificacoes(document.getElementById('filtro-notificacoes')?.value || 'pendentes');
         });
     });
 
@@ -68,6 +70,29 @@ export function initUI() {
             // Bônus: Se o prontuário estiver aberto, fecha ele ao voltar
             const pep = document.getElementById('prontuario-ativo');
             if (pep) pep.style.display = 'none';
+        });
+    });
+
+    // === NAVEGAÇÃO INTERNA DO HUB FINANCEIRO (Livro Caixa / Custos Fixos) ===
+    const hubFinanceiro = document.getElementById('hub-financeiro');
+    const areaLivroCaixa = document.getElementById('area-livro-caixa');
+    const areaCustosFixos = document.getElementById('area-custos-fixos');
+
+    document.getElementById('btn-hub-livro-caixa')?.addEventListener('click', () => {
+        hubFinanceiro.style.display = 'none';
+        areaLivroCaixa.style.display = 'block';
+    });
+
+    document.getElementById('btn-hub-custos-fixos')?.addEventListener('click', () => {
+        hubFinanceiro.style.display = 'none';
+        areaCustosFixos.style.display = 'block';
+    });
+
+    document.querySelectorAll('.btn-voltar-hub-financeiro').forEach(btn => {
+        btn.addEventListener('click', () => {
+            areaLivroCaixa.style.display = 'none';
+            areaCustosFixos.style.display = 'none';
+            hubFinanceiro.style.display = 'flex';
         });
     });
     // Lógica para fechar modais no ESC ou clique fora...

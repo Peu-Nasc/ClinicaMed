@@ -66,6 +66,10 @@
                 <button class="menu-btn" data-target="pacientes"><i class="fa-solid fa-users"></i> Pacientes & Prontuários</button>
                 <button class="menu-btn" data-target="estoque"><i class="fa-solid fa-boxes-stacked"></i> Estoque (Anvisa)</button>
                 <button class="menu-btn" data-target="financeiro"><i class="fa-solid fa-cash-register"></i> Financeiro</button>
+                <button class="menu-btn" data-target="notificacoes">
+                    <i class="fa-solid fa-bell"></i> Notificações
+                    <span id="badge-notificacoes" class="menu-badge" style="display:none;">0</span>
+                </button>
             </nav>
             <div class="user-profile">
                 <!-- Colocamos IDs para o JavaScript conseguir injetar os dados -->
@@ -134,6 +138,23 @@
                         <div class="card dashboard-panel">
                             <h4><i class="fa-solid fa-triangle-exclamation icon-warning"></i> Alertas de Estoque (Hoje)</h4>
                             <div class="dash-list" id="dash-list-estoque">
+                                <!-- Preenchido pelo JS -->
+                            </div>
+                        </div>
+
+                        <!-- Painel 2B: Custos Fixos do Mês (previsão, não entra na DRE) -->
+                        <div class="card dashboard-panel">
+                            <h4><i class="fa-solid fa-file-invoice-dollar icon-warning"></i> Custos Fixos do Mês</h4>
+                            <div class="dash-list" id="dash-list-custos-fixos">
+                                <!-- Preenchido pelo JS -->
+                            </div>
+                            <div class="dash-panel-footer" id="dash-custos-fixos-total"></div>
+                        </div>
+
+                        <!-- Painel 2C: Revisões / Retornos Pendentes -->
+                        <div class="card dashboard-panel">
+                            <h4><i class="fa-solid fa-calendar-check icon-warning"></i> Revisões Pendentes</h4>
+                            <div class="dash-list" id="dash-list-revisoes">
                                 <!-- Preenchido pelo JS -->
                             </div>
                         </div>
@@ -228,7 +249,7 @@
                         <!-- Tabela de Pacientes -->
                         <div class="table-container">
                             <table class="data-table">
-                                <thead><tr><th>Nome</th><th>CPF</th><th>Convênio</th><th>Alergias</th><th>Ações</th></tr></thead>
+                                <thead><tr><th>Nome</th><th>CPF</th><th>Convênio</th><th>Alergias</th><th>Status</th><th>Ações</th></tr></thead>
                                 <tbody id="patient-table-body-list"></tbody>
                             </table>
                         </div>
@@ -281,6 +302,7 @@
                                         <div class="form-group full-width"><label>Exame Físico</label><textarea id="pep-exame-fisico" class="textarea-form" rows="2" required></textarea></div>
                                         <div class="form-group full-width"><label>Diagnóstico (CID)</label><textarea id="pep-diagnostico" class="textarea-form" rows="2"></textarea></div>
                                         <div class="form-group full-width"><label>Conduta e Prescrição (Evolução interna)</label><textarea id="pep-prescricao" class="textarea-form" rows="2" required></textarea></div>
+                                        <div class="form-group"><label>Retornar em quantos dias? (opcional)</label><input type="number" id="pep-retorno-dias" class="input-premium" min="1" placeholder="Ex: 30"></div>
                                         <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-signature"></i> Assinar e Salvar no Histórico</button></div>
                                     </form>
                                 </div>
@@ -462,45 +484,123 @@
 
                 <section id="financeiro" class="view-section">
                     <div class="section-header">
-                        <div>
-                            <h2>Livro Caixa e Conciliação</h2>
-                            <p class="top-subtitle">Gestão de entradas, saídas e repasses médicos</p>
+                        <h2>Central Financeira</h2>
+                    </div>
+
+                    <!-- NÍVEL 1: Menu Principal com 2 Botões Grandes -->
+                    <div id="hub-financeiro" class="card-grid mt-30">
+                        <div class="card card-action" id="btn-hub-livro-caixa">
+                            <i class="fa-solid fa-cash-register hub-icon"></i>
+                            <h3>Livro Caixa</h3>
+                            <p class="top-subtitle mt-15">Lançamentos de entradas, saídas e repasses médicos</p>
                         </div>
-                        <button class="btn-primary" id="btn-abrir-modal-financeiro" type="button" data-open-modal="modal-financeiro">
-                            <i class="fa-solid fa-plus"></i> Novo Lançamento
-                        </button>
+                        <div class="card card-action" id="btn-hub-custos-fixos">
+                            <i class="fa-solid fa-file-invoice-dollar hub-icon"></i>
+                            <h3>Custos Fixos</h3>
+                            <p class="top-subtitle mt-15">Aluguel, salários e despesas recorrentes do mês</p>
+                        </div>
                     </div>
 
-                    <!-- NOVO: Mini Dashboard Financeiro Local -->
-                    <div class="card-grid mb-20" id="fin-mini-dash"></div>
+                    <!-- NÍVEL 2A: Livro Caixa (Oculta por padrão) -->
+                    <div id="area-livro-caixa" style="display: none;">
+                        <div class="flex-row gap-15 mb-20">
+                            <button class="btn-secondary btn-voltar-hub-financeiro"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                            <button class="btn-primary" id="btn-abrir-modal-financeiro" type="button" data-open-modal="modal-financeiro">
+                                <i class="fa-solid fa-plus"></i> Novo Lançamento
+                            </button>
+                        </div>
 
-                    <!-- NOVO: Filtros de Pesquisa do Financeiro -->
-                    <div class="search-bar">
-                        <input id="search-financeiro" type="text" class="input-form flex-2" placeholder="Pesquisar por Nome, Empresa ou Categoria...">
-                        <select id="filtro-mes-financeiro" class="input-premium flex-1">
-                            <option value="todos">Todos os Meses</option>
-                            <!-- Os meses serão gerados automaticamente pelo JavaScript -->
+                        <div class="section-header">
+                            <div>
+                                <h2>Livro Caixa e Conciliação</h2>
+                                <p class="top-subtitle">Gestão de entradas, saídas e repasses médicos</p>
+                            </div>
+                        </div>
+
+                        <!-- NOVO: Mini Dashboard Financeiro Local -->
+                        <div class="card-grid mb-20" id="fin-mini-dash"></div>
+
+                        <!-- NOVO: Filtros de Pesquisa do Financeiro -->
+                        <div class="search-bar">
+                            <input id="search-financeiro" type="text" class="input-form flex-2" placeholder="Pesquisar por Nome, Empresa ou Categoria...">
+                            <select id="filtro-mes-financeiro" class="input-premium flex-1">
+                                <option value="todos">Todos os Meses</option>
+                                <!-- Os meses serão gerados automaticamente pelo JavaScript -->
+                            </select>
+                            <button type="button" class="btn-secondary" id="btn-exportar-financeiro" title="Exportar lançamentos filtrados para CSV">
+                                <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                            </button>
+                        </div>
+
+                        <!-- Tabela Reorganizada e Agrupada -->
+                        <div class="historico-lancamentos table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Datas (Comp / Caixa)</th>
+                                        <th>Descrição / Categoria</th>
+                                        <th>Forma Pag.</th>
+                                        <th>Status</th>
+                                        <th>Valor Líquido</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="finance-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- NÍVEL 2B: Custos Fixos (Oculta por padrão) -->
+                    <div id="area-custos-fixos" style="display: none;">
+                        <div class="flex-row gap-15 mb-20">
+                            <button class="btn-secondary btn-voltar-hub-financeiro"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                            <button class="btn-primary" id="btn-abrir-modal-custo-fixo" type="button">
+                                <i class="fa-solid fa-plus"></i> Novo Custo Fixo
+                            </button>
+                        </div>
+
+                        <div class="section-header">
+                            <div>
+                                <h2>Custos Fixos</h2>
+                                <p class="top-subtitle">Despesas recorrentes: aluguel, salários, contas e insumos fixos</p>
+                            </div>
+                        </div>
+
+                        <!-- Mini Dashboard de Custos Fixos -->
+                        <div class="card-grid mb-20" id="custo-fixo-mini-dash"></div>
+
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Descrição</th>
+                                        <th>Categoria</th>
+                                        <th>Vencimento</th>
+                                        <th>Valor Mensal</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="custo-fixo-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="notificacoes" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h2>Central de Notificações</h2>
+                            <p class="top-subtitle">Pendências geradas pelo sistema em tempo real (retornos, alertas e avisos)</p>
+                        </div>
+                        <select id="filtro-notificacoes" class="input-premium select-compact">
+                            <option value="pendentes">Pendentes</option>
+                            <option value="concluidas">Resolvidas</option>
+                            <option value="todas">Todas</option>
                         </select>
-                        <button type="button" class="btn-secondary" id="btn-exportar-financeiro" title="Exportar lançamentos filtrados para CSV">
-                            <i class="fa-solid fa-file-csv"></i> Exportar CSV
-                        </button>
                     </div>
 
-                    <!-- Tabela Reorganizada e Agrupada -->
-                    <div class="historico-lancamentos table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Datas (Comp / Caixa)</th>
-                                    <th>Descrição / Categoria</th>
-                                    <th>Forma Pag.</th>
-                                    <th>Status</th>
-                                    <th>Valor Líquido</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="finance-table-body"></tbody>
-                        </table>
+                    <div class="dash-list" id="notificacoes-lista" style="max-height: none;">
+                        <!-- Preenchido pelo JS -->
                     </div>
                 </section>
             </div>
@@ -621,6 +721,34 @@
                     <div class="form-group"><label>Data do Caixa (Recebimento) *</label><input type="date" id="fin-caixa" class="input-premium" required></div>
                     <div class="form-group full-width"><label>Valor (R$) *</label><input type="text" id="fin-valor" class="input-premium" required placeholder="0,00"></div>
                     <div class="form-actions full-width"><button type="submit" class="btn-primary">Lançar no Caixa</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-custo-fixo" class="modal-overlay">
+        <div class="modal-content modal-sm">
+            <header class="modal-header">
+                <h2>Custo Fixo</h2>
+                <button class="btn-close-modal" id="btn-close-custo-fixo" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body">
+                <form id="form-custo-fixo" class="form-grid">
+                    <div class="form-group full-width"><label>Descrição *</label><input type="text" id="custo-descricao" class="input-premium" placeholder="Ex: Aluguel da clínica" required></div>
+                    <div class="form-group">
+                        <label>Categoria *</label>
+                        <select id="custo-categoria" class="input-premium" required>
+                            <option value="Aluguel">Aluguel</option>
+                            <option value="Salarios">Salários</option>
+                            <option value="Contas">Água / Luz / Internet</option>
+                            <option value="Insumos">Insumos Recorrentes</option>
+                            <option value="Manutencao">Manutenção</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Dia de Vencimento *</label><input type="number" id="custo-dia-vencimento" class="input-premium" min="1" max="31" placeholder="Ex: 10" required></div>
+                    <div class="form-group full-width"><label>Valor Mensal (R$) *</label><input type="text" id="custo-valor" class="input-premium" required placeholder="0,00"></div>
+                    <div class="form-actions full-width"><button type="submit" class="btn-primary">Salvar Custo Fixo</button></div>
                 </form>
             </div>
         </div>

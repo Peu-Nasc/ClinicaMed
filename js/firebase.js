@@ -1,7 +1,7 @@
 // Importando as funções da versão 12.16.0
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import { clinicaState } from './state.js';
 
 
@@ -32,4 +32,4 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
 
 // Exportando os métodos que a tela de login e as tabelas vão usar
 export { signInWithEmailAndPassword, signOut, onAuthStateChanged };
-export { collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc };
+export { collection, addDoc, getDocs, query, where, doc, updateDoc, deleteDoc, onSnapshot };
