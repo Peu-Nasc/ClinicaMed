@@ -21,8 +21,8 @@ export function verificarAlertasAgendamento() {
     amanhaObj.setDate(amanhaObj.getDate() + 1);
     const amanhaIso = getIsoDate(amanhaObj);
 
-    const consultasHoje = clinicaState.agenda.agendamentos.filter(a => a.data === hojeIso);
-    const consultasAmanha = clinicaState.agenda.agendamentos.filter(a => a.data === amanhaIso);
+    const consultasHoje = clinicaState.agenda.agendamentos.filter(a => a.data === hojeIso && a.status !== 'cancelado');
+    const consultasAmanha = clinicaState.agenda.agendamentos.filter(a => a.data === amanhaIso && a.status !== 'cancelado');
 
     if (consultasHoje.length > 0) {
         showToast(`Você tem ${consultasHoje.length} consulta(s) agendada(s) para hoje.`, 'warning');
@@ -125,10 +125,14 @@ export function initAgenda() {
             const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacId));
 
             // SISTEMA DE BLOQUEIO (Impede choque de horários)
+            // Consultas com status "cancelado" não ocupam mais o horário -
+            // o cancelamento agora é um status (não apaga o registro), então
+            // é preciso ignorá-las explicitamente para liberar o slot de novo.
             const horarioOcupado = clinicaState.agenda.agendamentos.find(a => 
                 a.profId === String(profId) && 
                 a.data === dataAgendamento && 
-                a.hora === horaAgendamento
+                a.hora === horaAgendamento &&
+                a.status !== 'cancelado'
             );
 
             if (horarioOcupado) {
@@ -150,7 +154,7 @@ export function initAgenda() {
                     data: dataAgendamento,
                     hora: horaAgendamento,
                     tipo: document.getElementById('agenda-tipo').value,
-                    status: 'aguardando', 
+                    status: 'agendado', 
                     clinicaId: clinicaState.sessao.clinicaId
                 });
                 
@@ -166,25 +170,89 @@ export function initAgenda() {
         });
     });
 
+    let agendamentoIdParaAtualizar = null;
+
+    const modalConfirmarAgendamento = document.getElementById('modal-confirmar-agendamento');
+    const modalCancelarAgendamento = document.getElementById('modal-cancelar-agendamento');
+
+    function fecharModaisDeStatus() {
+        modalConfirmarAgendamento.classList.remove('active');
+        modalCancelarAgendamento.classList.remove('active');
+        agendamentoIdParaAtualizar = null;
+        // Reconstrói a agenda a partir do estado atual (que não mudou),
+        // pra desfazer visualmente a seleção do <select> se o usuário
+        // fechar o modal sem confirmar.
+        atualizarAgenda();
+    }
+
+    document.getElementById('btn-close-confirmar-agendamento').addEventListener('click', fecharModaisDeStatus);
+    document.getElementById('btn-close-cancelar-agendamento').addEventListener('click', fecharModaisDeStatus);
+
+    document.getElementById('form-confirmar-agendamento').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!agendamentoIdParaAtualizar) return;
+
+        const btnSalvar = e.target.querySelector('button[type="submit"]');
+        const idAgendamento = agendamentoIdParaAtualizar;
+
+        await comEstadoDeCarregamento(btnSalvar, 'Confirmando...', async () => {
+            try {
+                await updateDoc(doc(db, "agendamentos", idAgendamento), {
+                    status: 'confirmado',
+                    observacaoConfirmacao: {
+                        whatsapp: document.getElementById('confirmacao-whatsapp').checked,
+                        pagamento: document.getElementById('confirmacao-pagamento').checked,
+                        chegou: document.getElementById('confirmacao-chegou').checked,
+                        observacoes: document.getElementById('confirmacao-observacoes').value
+                    }
+                });
+                showToast('Consulta confirmada!', 'success');
+                modalConfirmarAgendamento.classList.remove('active');
+                e.target.reset();
+                agendamentoIdParaAtualizar = null;
+                await carregarAgendamentos();
+            } catch (error) {
+                console.error("Erro ao confirmar consulta: ", error);
+                showToast('Erro ao confirmar consulta.', 'error');
+            }
+        });
+    });
+
+    document.getElementById('form-cancelar-agendamento').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!agendamentoIdParaAtualizar) return;
+
+        const btnSalvar = e.target.querySelector('button[type="submit"]');
+        const idAgendamento = agendamentoIdParaAtualizar;
+
+        await comEstadoDeCarregamento(btnSalvar, 'Cancelando...', async () => {
+            try {
+                // Cancelar agora é uma mudança de status, não mais deleteDoc:
+                // o registro precisa sobreviver para o histórico e para uma
+                // futura auditoria. O horário fica livre para um novo
+                // agendamento porque a busca de "horário ocupado" ignora
+                // consultas com status "cancelado".
+                await updateDoc(doc(db, "agendamentos", idAgendamento), {
+                    status: 'cancelado',
+                    motivoCancelamento: document.getElementById('cancelamento-motivo').value,
+                    canceladoPor: clinicaState.sessao.nome,
+                    canceladoEm: new Date().toISOString()
+                });
+                showToast('Consulta cancelada.', 'success');
+                modalCancelarAgendamento.classList.remove('active');
+                e.target.reset();
+                agendamentoIdParaAtualizar = null;
+                await carregarAgendamentos();
+            } catch (error) {
+                console.error("Erro ao cancelar consulta: ", error);
+                showToast('Erro ao cancelar consulta.', 'error');
+            }
+        });
+    });
+
     const agendaContainer = document.getElementById('agenda-professionals');
     if (agendaContainer) {
         agendaContainer.addEventListener('click', async (e) => {
-            const btnCancelar = e.target.closest('.btn-cancelar-consulta');
-            if (btnCancelar) {
-                e.stopPropagation();
-                if (await confirmarAcao('Deseja realmente cancelar esta consulta?', { titulo: 'Cancelar consulta', textoConfirmar: 'Cancelar consulta' })) {
-                    const idAgendamento = btnCancelar.getAttribute('data-id');
-                    try {
-                        await deleteDoc(doc(db, "agendamentos", idAgendamento));
-                        showToast('Consulta cancelada.', 'success');
-                        await carregarAgendamentos();
-                    } catch (error) {
-                        console.error("Erro ao cancelar: ", error);
-                        showToast('Erro ao remover agendamento.', 'error');
-                    }
-                }
-            }
-
             const btnRemoverBloqueio = e.target.closest('.btn-remover-bloqueio');
             if (btnRemoverBloqueio) {
                 e.stopPropagation();
@@ -206,7 +274,25 @@ export function initAgenda() {
             if (e.target.classList.contains('select-status-agenda')) {
                 const novoStatus = e.target.value;
                 const idAgendamento = e.target.getAttribute('data-id');
-                
+
+                // Confirmado e Cancelado precisam de dados extras (observação
+                // e motivo, respectivamente) - abrem modal em vez de salvar direto.
+                if (novoStatus === 'confirmado') {
+                    agendamentoIdParaAtualizar = idAgendamento;
+                    document.getElementById('form-confirmar-agendamento').reset();
+                    modalConfirmarAgendamento.classList.add('active');
+                    return;
+                }
+
+                if (novoStatus === 'cancelado') {
+                    agendamentoIdParaAtualizar = idAgendamento;
+                    document.getElementById('form-cancelar-agendamento').reset();
+                    modalCancelarAgendamento.classList.add('active');
+                    return;
+                }
+
+                // Agendado / Aguardando Atendimento / Concluído: sem dados
+                // extras, salva direto como já funcionava antes.
                 try {
                     await updateDoc(doc(db, "agendamentos", idAgendamento), { status: novoStatus });
                     showToast('Status atualizado!', 'success');
@@ -332,27 +418,31 @@ export function atualizarAgenda() {
         coluna.innerHTML = `<div class="prof-header"><strong>${escapeHTML(prof.nome)}</strong><small>${escapeHTML(prof.especialidade)}</small></div>`;
         
         appointmentTimes.forEach(hora => {
+            // Consultas canceladas não ocupam mais o slot - o horário
+            // volta a ficar livre pra um novo agendamento, mas o registro
+            // cancelado continua existindo no banco (não é mais deletado).
             const agendamento = clinicaState.agenda.agendamentos.find(a => 
-                a.profId == prof.id && a.data === dataSelecionada && a.hora === hora
+                a.profId == prof.id && a.data === dataSelecionada && a.hora === hora && a.status !== 'cancelado'
             );
             
             const slot = document.createElement('div');
             if (agendamento) {
-                    const statusAtual = agendamento.status || 'aguardando';
+                    const statusAtual = agendamento.status || 'agendado';
                     slot.className = 'appointment-slot occupied';
                     slot.dataset.status = statusAtual; 
                     
                     slot.innerHTML = `
                         <div class="appt-slot-header">
                             <p class="patient-name">${escapeHTML(agendamento.pacNome)}</p>
-                            <button class="appt-cancel-btn btn-cancelar-consulta" data-id="${agendamento.id}" title="Cancelar Horário"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <span class="appointment-type">${escapeHTML(agendamento.tipo || 'Consulta')}</span>
                         
                         <select class="select-status-agenda input-premium" data-id="${agendamento.id}">
-                            <option value="aguardando" ${statusAtual === 'aguardando' ? 'selected' : ''}>⏳ Aguardando</option>
-                            <option value="confirmado" ${statusAtual === 'confirmado' ? 'selected' : ''}>✅ Confirmado (Chegou)</option>
-                            <option value="em-atendimento" ${statusAtual === 'em-atendimento' ? 'selected' : ''}>👨‍⚕️ Em Atendimento</option>
+                            <option value="agendado" ${statusAtual === 'agendado' ? 'selected' : ''}>🗓️ Agendado</option>
+                            <option value="confirmado" ${statusAtual === 'confirmado' ? 'selected' : ''}>✅ Confirmado</option>
+                            <option value="aguardando_atendimento" ${statusAtual === 'aguardando_atendimento' ? 'selected' : ''}>⏳ Aguardando Atendimento</option>
+                            <option value="concluido" ${statusAtual === 'concluido' ? 'selected' : ''}>🏁 Concluído</option>
+                            <option value="cancelado" ${statusAtual === 'cancelado' ? 'selected' : ''}>❌ Cancelado</option>
                         </select>
                     `;
             } else {

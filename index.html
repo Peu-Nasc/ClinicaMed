@@ -900,6 +900,53 @@
         </div>
     </div>
 
+    <!-- ================== MODAL DE CONFIRMAÇÃO DE CONSULTA (status: Confirmado) ================== -->
+    <div id="modal-confirmar-agendamento" class="modal-overlay">
+        <div class="modal-content modal-sm">
+            <header class="modal-header">
+                <h2>Confirmar Consulta</h2>
+                <button class="btn-close-modal" id="btn-close-confirmar-agendamento" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body">
+                <form id="form-confirmar-agendamento" class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="checkbox-label"><input type="checkbox" id="confirmacao-whatsapp"> Confirmação enviada via WhatsApp</label>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="checkbox-label"><input type="checkbox" id="confirmacao-pagamento"> Pagamento já realizado</label>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="checkbox-label"><input type="checkbox" id="confirmacao-chegou"> Paciente já chegou à clínica</label>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Outras observações (opcional)</label>
+                        <textarea id="confirmacao-observacoes" class="textarea-form" rows="2"></textarea>
+                    </div>
+                    <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-check"></i> Confirmar Consulta</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================== MODAL DE CANCELAMENTO DE CONSULTA (status: Cancelado) ================== -->
+    <div id="modal-cancelar-agendamento" class="modal-overlay">
+        <div class="modal-content modal-sm">
+            <header class="modal-header">
+                <h2>Cancelar Consulta</h2>
+                <button class="btn-close-modal" id="btn-close-cancelar-agendamento" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body">
+                <form id="form-cancelar-agendamento" class="form-grid">
+                    <div class="form-group full-width">
+                        <label>Motivo do Cancelamento *</label>
+                        <textarea id="cancelamento-motivo" class="textarea-form" rows="3" required placeholder="Ex: Paciente remarcou, imprevisto médico, etc."></textarea>
+                    </div>
+                    <div class="form-actions full-width"><button type="submit" class="btn-primary danger"><i class="fa-solid fa-ban"></i> Confirmar Cancelamento</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- ================== MODAL DE CONFIRMAÇÃO (substitui o confirm() nativo do navegador) ================== -->
     <div id="modal-confirmacao" class="modal-overlay">
         <div class="modal-content modal-sm">

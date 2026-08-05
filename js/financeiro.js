@@ -449,7 +449,14 @@ export function calcularDRE() {
             consultasFiltradas.sort((a,b) => (a.data + a.hora).localeCompare(b.data + b.hora));
 
             dashAgenda.innerHTML = consultasFiltradas.map(c => {
-                let badgeColor = c.status === 'aguardando' ? 'warning' : (c.status === 'em-atendimento' ? 'success' : 'neutral');
+                const coresPorStatus = {
+                    agendado: 'neutral',
+                    confirmado: 'primary',
+                    aguardando_atendimento: 'warning',
+                    concluido: 'success',
+                    cancelado: 'danger'
+                };
+                let badgeColor = coresPorStatus[c.status] || 'neutral';
                 let dataExibicao = (filtroPeriodo === 'hoje' || filtroPeriodo === 'ontem' || filtroPeriodo === 'especifico')
                                  ? c.hora
                                  : `${c.data.split('-').reverse().join('/').slice(0,5)} às ${c.hora}`; 

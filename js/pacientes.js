@@ -507,7 +507,9 @@ export function renderizarResumoPacienteAtivo() {
 const MESES_PARA_INATIVIDADE = 6;
 
 function obterStatusAtividade(pacienteId) {
-    const consultas = clinicaState.agenda.agendamentos.filter(a => String(a.pacId) === String(pacienteId));
+    // Consultas canceladas não contam como "última consulta" - agora que o
+    // cancelamento não apaga mais o registro, é preciso ignorá-las aqui.
+    const consultas = clinicaState.agenda.agendamentos.filter(a => String(a.pacId) === String(pacienteId) && a.status !== 'cancelado');
 
     if (consultas.length === 0) {
         return { texto: 'Novo', classe: 'info' };

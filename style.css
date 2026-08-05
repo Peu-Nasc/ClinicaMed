@@ -439,6 +439,8 @@ select.input-premium { cursor: pointer; }
 .badge.success { background-color: #28a745; }
 .badge.danger { background-color: #dc3545; }
 .badge.info { background-color: var(--primary-light); }
+.badge.primary { background-color: var(--primary-color); }
+.badge.neutral { background-color: #6c757d; }
 
 /* Cards Financeiros */
 .financeiro-cards { display: flex; gap: 20px; }
@@ -714,6 +716,14 @@ select.input-premium { cursor: pointer; }
     padding: 10px;
 }
 
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
 .time-slot {
     display: flex;
     align-items: center;
@@ -749,9 +759,10 @@ select.input-premium { cursor: pointer; }
     justify-content: center;
 }
 
+.appointment-slot.occupied[data-status="agendado"] { border-left-color: #6c757d; background-color: #e9ecef; }
 .appointment-slot.occupied[data-status="confirmado"] { border-left-color: #0d6efd; background-color: #cfe2ff; }
-.appointment-slot.occupied[data-status="aguardando"] { border-left-color: #ffc107; background-color: #fff3cd; }
-.appointment-slot.occupied[data-status="em-atendimento"] { border-left-color: #198754; background-color: #d1e7dd; }
+.appointment-slot.occupied[data-status="aguardando_atendimento"] { border-left-color: #ffc107; background-color: #fff3cd; }
+.appointment-slot.occupied[data-status="concluido"] { border-left-color: #198754; background-color: #d1e7dd; }
 
 .appointment-slot.blocked {
     background: repeating-linear-gradient(45deg, #f1f3f5, #f1f3f5 8px, #e9ecef 8px, #e9ecef 16px);
