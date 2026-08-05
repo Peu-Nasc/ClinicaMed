@@ -22,7 +22,12 @@ export function initEstoque() {
 
     // Filtro de pesquisa em tempo real
     document.getElementById('search-estoque').addEventListener('input', (e) => {
-        atualizarTabelaEstoque(e.target.value.toLowerCase());
+        atualizarTabelaEstoque(e.target.value.toLowerCase(), document.getElementById('filtro-categoria-estoque').value);
+    });
+
+    // Filtro por categoria
+    document.getElementById('filtro-categoria-estoque').addEventListener('change', (e) => {
+        atualizarTabelaEstoque(document.getElementById('search-estoque').value.toLowerCase(), e.target.value);
     });
     
     document.getElementById('form-estoque').addEventListener('submit', async (e) => {
@@ -37,6 +42,7 @@ export function initEstoque() {
                     nome: document.getElementById('est-nome').value,
                     apresentacao: document.getElementById('est-apresentacao').value,
                     anvisa: document.getElementById('est-anvisa').value,
+                    categoria: document.getElementById('est-categoria').value,
                     lote: document.getElementById('est-lote').value,
                     validade: document.getElementById('est-validade').value,
                     qtd: parseInt(document.getElementById('est-qtd').value),
@@ -78,15 +84,18 @@ export function verificarAlertasEstoque() {
     });
 }
 
-export function atualizarTabelaEstoque(filtro = '') {
+export function atualizarTabelaEstoque(filtro = '', categoria = 'todas') {
     const hoje = new Date();
     let statsBaixo = 0;
     let statsVencido = 0;
 
     const filtrados = clinicaState.estoque.filter(i => {
-        return i.nome.toLowerCase().includes(filtro) || 
+        const bateTexto = i.nome.toLowerCase().includes(filtro) || 
                i.lote.toLowerCase().includes(filtro) ||
                i.codigo.toLowerCase().includes(filtro);
+        // Itens antigos, cadastrados antes da categorização, entram em "Outros"
+        const bateCategoria = categoria === 'todas' || (i.categoria || 'Outros') === categoria;
+        return bateTexto && bateCategoria;
     });
 
     document.getElementById('stock-table-body').innerHTML = filtrados.map(i => {
@@ -107,6 +116,7 @@ export function atualizarTabelaEstoque(filtro = '') {
 
         return `<tr>
             <td>
+                <span class="badge primary" style="margin-bottom:4px; display:inline-block;">${escapeHTML(i.categoria || 'Outros')}</span><br>
                 <strong>${escapeHTML(i.nome)}</strong><br>
                 <small style="color: #6C757D;">Cód: ${escapeHTML(i.codigo)} | ${escapeHTML(i.apresentacao)} | ${escapeHTML(i.controle)}</small>
             </td>
@@ -242,6 +252,7 @@ if (stockTableBody) {
                 document.getElementById('est-nome').value = item.nome;
                 document.getElementById('est-apresentacao').value = item.apresentacao;
                 document.getElementById('est-anvisa').value = item.anvisa;
+                document.getElementById('est-categoria').value = item.categoria || '';
                 document.getElementById('est-lote').value = item.lote;
                 document.getElementById('est-validade').value = item.validade;
                 document.getElementById('est-qtd').value = item.qtd;

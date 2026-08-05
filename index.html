@@ -300,7 +300,7 @@
                                         </div>
                                         <div class="form-group full-width"><label>Anamnese / Queixa Principal</label><textarea id="pep-anamnese" class="textarea-form" rows="2" required></textarea></div>
                                         <div class="form-group full-width"><label>Exame Físico</label><textarea id="pep-exame-fisico" class="textarea-form" rows="2" required></textarea></div>
-                                        <div class="form-group full-width"><label>Diagnóstico (CID)</label><textarea id="pep-diagnostico" class="textarea-form" rows="2"></textarea></div>
+                                        <div class="form-group full-width"><label>Suspeita Diagnóstica (CID)</label><textarea id="pep-diagnostico" class="textarea-form" rows="2"></textarea></div>
                                         <div class="form-group full-width"><label>Conduta e Prescrição (Evolução interna)</label><textarea id="pep-prescricao" class="textarea-form" rows="2" required></textarea></div>
                                         <div class="form-group"><label>Retornar em quantos dias? (opcional)</label><input type="number" id="pep-retorno-dias" class="input-premium" min="1" placeholder="Ex: 30"></div>
                                         <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-signature"></i> Assinar e Salvar no Histórico</button></div>
@@ -330,6 +330,25 @@
                                                 <option value="ATESTADO MÉDICO">Atestado Médico</option>
                                                 <option value="ENCAMINHAMENTO MÉDICO">Encaminhamento Especializado</option>
                                                 <option value="RELATÓRIO MÉDICO">Relatório Clínico</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group full-width" id="grupo-especialidade-encaminhamento" style="display:none;">
+                                            <label>Especialidade de Encaminhamento</label>
+                                            <select id="encaminhamento-especialidade" class="input-premium">
+                                                <option value="" disabled selected>Selecione a especialidade...</option>
+                                                <option value="Cardiologia">Cardiologia</option>
+                                                <option value="Dermatologia">Dermatologia</option>
+                                                <option value="Endocrinologia">Endocrinologia</option>
+                                                <option value="Gastroenterologia">Gastroenterologia</option>
+                                                <option value="Ginecologia e Obstetrícia">Ginecologia e Obstetrícia</option>
+                                                <option value="Neurologia">Neurologia</option>
+                                                <option value="Oftalmologia">Oftalmologia</option>
+                                                <option value="Ortopedia">Ortopedia</option>
+                                                <option value="Otorrinolaringologia">Otorrinolaringologia</option>
+                                                <option value="Pediatria">Pediatria</option>
+                                                <option value="Psiquiatria">Psiquiatria</option>
+                                                <option value="Urologia">Urologia</option>
+                                                <option value="Outra Especialidade">Outra Especialidade</option>
                                             </select>
                                         </div>
                                         <div class="form-group full-width">
@@ -419,6 +438,14 @@
     <!-- Barra de Pesquisa de Estoque -->
     <div class="search-bar">
         <input id="search-estoque" type="text" class="input-form" placeholder="Pesquisar por Nome, Princípio Ativo ou Lote...">
+        <select id="filtro-categoria-estoque" class="input-premium select-compact">
+            <option value="todas">Todas as Categorias</option>
+            <option value="Medicamentos">Medicamentos</option>
+            <option value="Materiais">Materiais</option>
+            <option value="Uso Geral">Uso Geral</option>
+            <option value="Equipamentos">Equipamentos</option>
+            <option value="Outros">Outros</option>
+        </select>
     </div>
 
     <div class="table-container">
@@ -453,6 +480,17 @@
                 <div class="form-group"><label>Código de Barras *</label><input type="text" id="est-codigo" class="input-premium" required></div>
                 <div class="form-group"><label>Apresentação e Concentração</label><input type="text" id="est-apresentacao" class="input-premium" placeholder="Ex: Ampola 10ml, 50mg"></div>
                 <div class="form-group"><label>Fabricante / Registro Anvisa</label><input type="text" id="est-anvisa" class="input-premium"></div>
+                <div class="form-group">
+                    <label>Categoria *</label>
+                    <select id="est-categoria" class="input-premium" required>
+                        <option value="" disabled selected>Selecione...</option>
+                        <option value="Medicamentos">Medicamentos</option>
+                        <option value="Materiais">Materiais</option>
+                        <option value="Uso Geral">Uso Geral</option>
+                        <option value="Equipamentos">Equipamentos</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
                 
                 <!-- BLOCO 2: Rastreabilidade -->
                 <div class="form-group full-width"><h3 class="form-section-title mt-10">Rastreabilidade e Validade</h3></div>
@@ -774,7 +812,7 @@
                             <option value="Primeira Consulta">Primeira Consulta</option>
                             <option value="Retorno">Retorno</option>
                             <option value="Procedimento">Procedimento / Exame</option>
-                            <option value="Telemedicina">Telemedicina</option>
+                            <option value="Consulta Periódica">Consulta Periódica</option>
                         </select>
                     </div>
 

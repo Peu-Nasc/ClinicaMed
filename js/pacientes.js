@@ -312,6 +312,32 @@ export function initPacientes() {
         });
     }
 
+    // ==========================================
+    // ENCAMINHAMENTO: mostra o seletor de especialidade só quando o
+    // documento escolhido é "Encaminhamento Especializado", e gera um
+    // texto padrão pronto para revisão do médico antes de imprimir.
+    // ==========================================
+    const selTipoDocumento = document.getElementById('tipo-documento-impressao');
+    const grupoEspecialidade = document.getElementById('grupo-especialidade-encaminhamento');
+    const selEspecialidade = document.getElementById('encaminhamento-especialidade');
+
+    if (selTipoDocumento && grupoEspecialidade) {
+        selTipoDocumento.addEventListener('change', (e) => {
+            grupoEspecialidade.style.display = e.target.value === 'ENCAMINHAMENTO MÉDICO' ? 'block' : 'none';
+        });
+    }
+
+    if (selEspecialidade) {
+        selEspecialidade.addEventListener('change', (e) => {
+            const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
+            const nomePaciente = paciente ? paciente.nome : '[paciente]';
+            const especialidade = e.target.value;
+
+            document.getElementById('texto-receita').value =
+                `Encaminho o(a) paciente ${nomePaciente} para avaliação e acompanhamento com especialista em ${especialidade}, conforme quadro clínico apresentado nesta consulta.\n\nFico à disposição para maiores esclarecimentos.`;
+        });
+    }
+
     const btnImprimir = document.getElementById('btn-imprimir-receita');
     if (btnImprimir) {
         btnImprimir.addEventListener('click', () => {
@@ -401,6 +427,13 @@ export function abrirProntuario(idPaciente) {
         
         renderizarEvolucoes(paciente);
         renderizarResumoPacienteAtivo();
+
+        // Reseta o gerador de documentos ao trocar de paciente, para não
+        // arrastar um texto de encaminhamento gerado para outra pessoa
+        const grupoEspecialidade = document.getElementById('grupo-especialidade-encaminhamento');
+        if (grupoEspecialidade) grupoEspecialidade.style.display = 'none';
+        const textoReceita = document.getElementById('texto-receita');
+        if (textoReceita) textoReceita.value = '';
         
         const areaHistorico = document.querySelector('.pep-historico'); 
         const formEvolucao = document.querySelector('.pep-nova-evolucao'); 
