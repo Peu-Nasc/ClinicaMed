@@ -969,6 +969,40 @@ summary.timeline-meta:hover {
 .pep-badge.neutral { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
 .pep-badge.danger { background: #fff0f0; color: #dc3545; border: 1px solid #ffcdd2; }
 
+/* Foto do paciente no avatar do prontuário, quando houver anexo */
+.pep-avatar { overflow: hidden; }
+.pep-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* Anexos (cadastro e prontuário) */
+.anexos-lista {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.anexo-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    font-size: 0.82rem;
+    color: var(--text-color);
+    text-decoration: none;
+}
+.anexo-chip:hover { background: #e2e8f0; }
+.anexo-chip .btn-remover-anexo {
+    border: none;
+    background: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0;
+    margin-left: 2px;
+}
+.pep-badge.link { background: var(--primary-light); color: white; text-decoration: none; cursor: pointer; }
+
 /* Melhorando as caixas de digitação e histórico */
 .pep-nova-evolucao, .pep-historico {
     background: #ffffff;

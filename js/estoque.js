@@ -1,6 +1,7 @@
 import { clinicaState } from './state.js';
 import { showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML, confirmarAcao } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
+import { registrarAuditoria } from './auditoria.js';
 
 let itemEmEdicaoId = null;
 
@@ -54,9 +55,11 @@ export function initEstoque() {
                 if (itemEmEdicaoId) {
                     await updateDoc(doc(db, "estoque", itemEmEdicaoId), dadosParaSalvar);
                     showToast('Lote atualizado com sucesso.', 'success');
+                    await registrarAuditoria({ acao: 'Edição', modulo: 'Estoque', descricao: `Lote atualizado: ${dadosParaSalvar.nome} (Lote ${dadosParaSalvar.lote})` });
                 } else {
                     await addDoc(collection(db, "estoque"), dadosParaSalvar);
                     showToast('Item registrado no estoque com sucesso.', 'success');
+                    await registrarAuditoria({ acao: 'Criação', modulo: 'Estoque', descricao: `Novo lote registrado: ${dadosParaSalvar.nome} (Lote ${dadosParaSalvar.lote})` });
                 }
                 
                 modalEstoque.classList.remove('active');
@@ -230,9 +233,11 @@ if (stockTableBody) {
         if (btnExcluir) {
             const idEst = btnExcluir.getAttribute('data-id');
             if (await confirmarAcao('Deseja realmente excluir este lote do inventário?', { titulo: 'Excluir lote', textoConfirmar: 'Excluir' })) {
+                const itemExcluido = clinicaState.estoque.find(i => String(i.id) === String(idEst));
                 try {
                     await deleteDoc(doc(db, "estoque", idEst));
                     showToast('Item excluído com sucesso.', 'success');
+                    await registrarAuditoria({ acao: 'Exclusão', modulo: 'Estoque', descricao: `Lote excluído: ${itemExcluido ? itemExcluido.nome + ' (Lote ' + itemExcluido.lote + ')' : idEst}` });
                     await carregarEstoque();
                 } catch (error) {
                     console.error("Erro ao excluir: ", error);

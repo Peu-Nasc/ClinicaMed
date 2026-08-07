@@ -1,6 +1,7 @@
 import { clinicaState } from './state.js';
 import { formatCurrency, showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML, confirmarAcao } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
+import { registrarAuditoria } from './auditoria.js';
 
 let lancamentoEmEdicaoId = null;
 let dreChartInstance = null;
@@ -118,9 +119,11 @@ export function initFinanceiro() {
                 if (lancamentoEmEdicaoId) {
                     await updateDoc(doc(db, "financeiro", lancamentoEmEdicaoId), dadosParaSalvar);
                     showToast('Lançamento atualizado e DRE recalculada!', 'success');
+                    await registrarAuditoria({ acao: 'Edição', modulo: 'Financeiro', descricao: `Lançamento atualizado: ${dadosParaSalvar.vinculo} - ${formatCurrency(dadosParaSalvar.valor)} (${dadosParaSalvar.tipo})` });
                 } else {
                     await addDoc(collection(db, "financeiro"), dadosParaSalvar);
                     showToast('Lançamento registrado na nuvem com sucesso.', 'success');
+                    await registrarAuditoria({ acao: 'Criação', modulo: 'Financeiro', descricao: `Novo lançamento: ${dadosParaSalvar.vinculo} - ${formatCurrency(dadosParaSalvar.valor)} (${dadosParaSalvar.tipo})` });
                 }
                 
                 modalFinanceiro.classList.remove('active');
@@ -145,9 +148,11 @@ export function initFinanceiro() {
             if (btnExcluir) {
                 const idFin = btnExcluir.getAttribute('data-id');
                 if (await confirmarAcao('Deseja realmente excluir este lançamento financeiro? Essa ação recalculará a sua DRE imediatamente.', { titulo: 'Excluir lançamento', textoConfirmar: 'Excluir' })) {
+                    const lancExcluido = clinicaState.financeiro.lancamentos.find(l => String(l.id) === String(idFin));
                     try {
                         await deleteDoc(doc(db, "financeiro", idFin));
                         showToast('Lançamento excluído com sucesso.', 'success');
+                        await registrarAuditoria({ acao: 'Exclusão', modulo: 'Financeiro', descricao: `Lançamento excluído: ${lancExcluido ? lancExcluido.vinculo + ' - ' + formatCurrency(lancExcluido.valor) : idFin}` });
                         await carregarFinanceiro();
                     } catch (error) {
                         console.error("Erro ao excluir: ", error);
@@ -231,9 +236,11 @@ function initCustosFixos() {
                 if (custoFixoEmEdicaoId) {
                     await updateDoc(doc(db, "custosFixos", custoFixoEmEdicaoId), dadosParaSalvar);
                     showToast('Custo fixo atualizado com sucesso.', 'success');
+                    await registrarAuditoria({ acao: 'Edição', modulo: 'Custos Fixos', descricao: `Custo fixo atualizado: ${dadosParaSalvar.descricao} - ${formatCurrency(dadosParaSalvar.valor)}` });
                 } else {
                     await addDoc(collection(db, "custosFixos"), dadosParaSalvar);
                     showToast('Custo fixo cadastrado com sucesso.', 'success');
+                    await registrarAuditoria({ acao: 'Criação', modulo: 'Custos Fixos', descricao: `Novo custo fixo: ${dadosParaSalvar.descricao} - ${formatCurrency(dadosParaSalvar.valor)}` });
                 }
 
                 modalCustoFixo.classList.remove('active');
@@ -258,9 +265,11 @@ function initCustosFixos() {
             if (btnExcluir) {
                 const idCusto = btnExcluir.getAttribute('data-id');
                 if (await confirmarAcao('Deseja realmente excluir este custo fixo?', { titulo: 'Excluir custo fixo', textoConfirmar: 'Excluir' })) {
+                    const custoExcluido = clinicaState.financeiro.custosFixos.find(c => String(c.id) === String(idCusto));
                     try {
                         await deleteDoc(doc(db, "custosFixos", idCusto));
                         showToast('Custo fixo excluído com sucesso.', 'success');
+                        await registrarAuditoria({ acao: 'Exclusão', modulo: 'Custos Fixos', descricao: `Custo fixo excluído: ${custoExcluido ? custoExcluido.descricao : idCusto}` });
                         await carregarCustosFixos();
                     } catch (error) {
                         console.error("Erro ao excluir custo fixo: ", error);

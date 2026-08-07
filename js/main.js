@@ -6,6 +6,7 @@ import { initFinanceiro, calcularDRE, atualizarTabelaFinanceiro, atualizarTabela
 import { initEstoque, atualizarTabelaEstoque } from './estoque.js';
 import { initAgenda, atualizarAgenda } from './agenda.js';
 import { initNotificacoes } from './notificacoes.js';
+import { initAuditoria } from './auditoria.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     initAuth();
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initEstoque();
     initAgenda();
     initNotificacoes();
+    initAuditoria();
 
     calcularDRE();
     atualizarTabelaFinanceiro();

@@ -6,6 +6,7 @@ import { carregarAgendamentos, carregarBloqueios, verificarAlertasAgendamento } 
 import { carregarFinanceiro, carregarCustosFixos } from './financeiro.js';
 import { escutarNotificacoes } from './notificacoes.js';
 import { carregarEstoque } from './estoque.js';
+import { carregarAuditoria, registrarAuditoria } from './auditoria.js';
 
 
 export function initAuth() {
@@ -45,6 +46,12 @@ export function initAuth() {
                 await carregarCustosFixos();
                 await carregarFinanceiro();
                 await carregarEstoque();
+
+                // Log de auditoria é restrito ao Administrador - evita leitura
+                // desnecessária no Firestore para quem nunca vai ver a tela.
+                if (clinicaState.sessao.perfil === 'admin') {
+                    await carregarAuditoria();
+                }
                 
                 // Remove a tela de login
                 loginScreen.classList.remove('active');
@@ -98,6 +105,14 @@ export function initAuth() {
                 // 4. Aplica as travas visuais (Oculta os menus)
                 aplicarPermissoesDeTela();
 
+                // Assinatura digital do acesso - feito depois de aplicarPermissoesDeTela
+                // porque já precisa de sessao.nome/perfil/clinicaId preenchidos
+                await registrarAuditoria({
+                    acao: 'Login',
+                    modulo: 'Sistema',
+                    descricao: `Login realizado (${dadosUsuario.perfil})`
+                });
+
                 loginScreen.style.opacity = '0';
                 loginScreen.style.transition = 'opacity 0.5s ease';
                 
@@ -126,6 +141,14 @@ export function initAuth() {
     if (btnLogout) {
         btnLogout.addEventListener('click', async () => {
             try {
+                // Registra a saída ANTES do signOut - depois disso a sessão
+                // (nome/perfil/clinicaId) é zerada pelo reload da página.
+                await registrarAuditoria({
+                    acao: 'Logout',
+                    modulo: 'Sistema',
+                    descricao: 'Encerramento de sessão'
+                });
+
                 // Informa ao Firebase para destruir a sessão atual
                 await signOut(auth);
                 
@@ -154,11 +177,14 @@ function aplicarPermissoesDeTela() {
     const btnDash = document.querySelector('.menu-btn[data-target="dashboard"]');
     const btnFin = document.querySelector('.menu-btn[data-target="financeiro"]');
     const btnEst = document.querySelector('.menu-btn[data-target="estoque"]');
+    const btnAudit = document.getElementById('btn-menu-auditoria');
     
     // Reseta todos para visível primeiro
     if(btnDash) btnDash.style.display = 'flex';
     if(btnFin) btnFin.style.display = 'flex';
     if(btnEst) btnEst.style.display = 'flex';
+    // Auditoria é o oposto dos outros: só aparece para o Administrador
+    if(btnAudit) btnAudit.style.display = 'none';
 
     // Regras de Bloqueio
     if (perfil === 'Doutor(a)') {
@@ -177,5 +203,9 @@ function aplicarPermissoesDeTela() {
         
         // Força a tela inicial ser a Agenda
         document.querySelector('.menu-btn[data-target="agenda"]').click();
+    }
+    else if (perfil === 'admin') {
+        // Só o Administrador tem acesso ao log de auditoria
+        if(btnAudit) btnAudit.style.display = 'flex';
     }
 }

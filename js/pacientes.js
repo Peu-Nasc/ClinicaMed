@@ -3,10 +3,17 @@ import { showToast, escapeHTML, encriptar, decriptar, comEstadoDeCarregamento, c
 import { atualizarAgenda } from './agenda.js';
 import { criarNotificacao } from './notificacoes.js';
 
-import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
+import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, storage, ref, uploadBytes, getDownloadURL, deleteObject } from './firebase.js';
+import { registrarAuditoria } from './auditoria.js';
 
 let pacienteAtivoId = null;
 let pacienteEmEdicaoId = null; 
+// Cópia de trabalho dos anexos do paciente em edição - {foto, documento, outros: []}.
+// null quando não há paciente em edição (cadastro novo).
+let anexosEmEdicao = null;
+// URLs de anexos removidos pelo usuário nesta sessão de edição, apagadas do
+// Storage só depois que o cadastro é salvo com sucesso.
+let anexosParaExcluirDoStorage = [];
 
 export function initPacientes() {
     const modalCadastro = document.getElementById('modal-cadastro');
@@ -23,6 +30,12 @@ export function initPacientes() {
         document.getElementById('form-cadastro').reset();
         tipoCadastro.value = tipo;
         const isPac = tipo === 'paciente';
+
+        // Reseta o estado de anexos - o handler de edição (btnEditar) sobrescreve
+        // isso logo em seguida quando o cadastro é de um paciente existente.
+        anexosEmEdicao = { foto: null, documento: null, outros: [] };
+        anexosParaExcluirDoStorage = [];
+        renderizarAnexosExistentes();
         
         document.querySelectorAll('.paciente-only').forEach(el => el.style.display = isPac ? 'grid' : 'none');
         document.querySelectorAll('.profissional-only').forEach(el => el.style.display = !isPac ? 'grid' : 'none');
@@ -40,6 +53,32 @@ export function initPacientes() {
     }
 
     tipoCadastro.addEventListener('change', (e) => abrirModalCadastro(e.target.value));
+
+    // Clique para remover um anexo já existente (durante edição de paciente) -
+    // só é removido do Storage de fato depois que o formulário é salvo.
+    const listaAnexosExistentes = document.getElementById('anexos-existentes-lista');
+    if (listaAnexosExistentes) {
+        listaAnexosExistentes.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-remover-anexo');
+            if (!btn || !anexosEmEdicao) return;
+
+            const tipo = btn.getAttribute('data-tipo');
+            if (tipo === 'foto' && anexosEmEdicao.foto) {
+                anexosParaExcluirDoStorage.push(anexosEmEdicao.foto);
+                anexosEmEdicao.foto = null;
+            } else if (tipo === 'documento' && anexosEmEdicao.documento) {
+                anexosParaExcluirDoStorage.push(anexosEmEdicao.documento);
+                anexosEmEdicao.documento = null;
+            } else if (tipo === 'outro') {
+                const idx = parseInt(btn.getAttribute('data-idx'));
+                if (anexosEmEdicao.outros[idx]) {
+                    anexosParaExcluirDoStorage.push(anexosEmEdicao.outros[idx]);
+                    anexosEmEdicao.outros.splice(idx, 1);
+                }
+            }
+            renderizarAnexosExistentes();
+        });
+    }
 
     document.getElementById('btn-verificar-cpf').addEventListener('click', () => {
         const cpfDigitado = document.getElementById('cad-cpf-check').value.trim();
@@ -91,6 +130,37 @@ export function initPacientes() {
 
             try {
                 if (tipo === 'paciente') {
+                    // Envia os arquivos novos ANTES de gravar o cadastro - se algum
+                    // upload falhar, interrompemos aqui e nada é salvo pela metade.
+                    const inputFoto = document.getElementById('cad-anexo-foto');
+                    const inputDocumento = document.getElementById('cad-anexo-documento');
+                    const inputOutros = document.getElementById('cad-anexo-outros');
+
+                    let novaFotoUrl = null;
+                    let novoDocumentoUrl = null;
+                    const novosOutrosUrls = [];
+
+                    try {
+                        if (inputFoto.files[0]) novaFotoUrl = await uploadAnexo(inputFoto.files[0], 'foto');
+                        if (inputDocumento.files[0]) novoDocumentoUrl = await uploadAnexo(inputDocumento.files[0], 'documento');
+                        for (const arquivo of inputOutros.files) {
+                            novosOutrosUrls.push(await uploadAnexo(arquivo, 'outros'));
+                        }
+                    } catch (uploadError) {
+                        console.error("Erro ao enviar anexo: ", uploadError);
+                        showToast('Falha ao enviar um dos anexos. O cadastro não foi salvo.', 'error');
+                        return;
+                    }
+
+                    // Anexos são opcionais (conforme definido em reunião) - só
+                    // gravamos o campo se houver algo, novo ou já existente.
+                    const anexosAtuais = {
+                        foto: novaFotoUrl || (anexosEmEdicao ? anexosEmEdicao.foto : null),
+                        documento: novoDocumentoUrl || (anexosEmEdicao ? anexosEmEdicao.documento : null),
+                        outros: [...(anexosEmEdicao ? anexosEmEdicao.outros : []), ...novosOutrosUrls]
+                    };
+                    const houveMudancaDeAnexo = novaFotoUrl || novoDocumentoUrl || novosOutrosUrls.length > 0 || anexosParaExcluirDoStorage.length > 0;
+
                     const dadosParaSalvar = {
                         ...baseData,
                         sangue: encriptar(document.getElementById('cad-sangue').value),
@@ -98,18 +168,36 @@ export function initPacientes() {
                         convenio: encriptar(document.getElementById('cad-convenio').value || 'Particular'),
                         carteirinha: encriptar(document.getElementById('cad-carteirinha').value),
                         emergencia: encriptar(document.getElementById('cad-emergencia').value),
-                        responsavel: encriptar(document.getElementById('cad-responsavel').value)
+                        responsavel: encriptar(document.getElementById('cad-responsavel').value),
+                        anexos: anexosAtuais
                     };
+
+                    const nomeClaro = document.getElementById('cad-nome').value;
+                    const sufixoAuditoria = houveMudancaDeAnexo ? ' (anexos atualizados)' : '';
 
                     if (pacienteEmEdicaoId) {
                         await updateDoc(doc(db, "pacientes", pacienteEmEdicaoId), dadosParaSalvar);
                         showToast('Dados do paciente atualizados!', 'success');
+                        await registrarAuditoria({ acao: 'Edição', modulo: 'Pacientes', descricao: `Cadastro atualizado: ${nomeClaro}${sufixoAuditoria}` });
                     } else {
                         dadosParaSalvar.evolucoes = [];
                         await addDoc(collection(db, "pacientes"), dadosParaSalvar);
                         showToast('Paciente salvo e criptografado com sucesso!', 'success');
+                        await registrarAuditoria({ acao: 'Criação', modulo: 'Pacientes', descricao: `Novo paciente cadastrado: ${nomeClaro}${sufixoAuditoria}` });
+                    }
+
+                    // Só remove do Storage depois que o cadastro foi salvo com
+                    // sucesso - se der erro antes disso, os arquivos "removidos"
+                    // continuam intactos e o usuário pode tentar salvar de novo.
+                    for (const urlAntiga of anexosParaExcluirDoStorage) {
+                        try {
+                            await deleteObject(ref(storage, urlAntiga));
+                        } catch (removeError) {
+                            console.error("Erro ao remover anexo antigo do Storage: ", removeError);
+                        }
                     }
                 } else {
+                    const nomeClaro = document.getElementById('cad-nome').value;
                     await addDoc(collection(db, "profissionais"), {
                         ...baseData,
                         conselho: encriptar(document.getElementById('cad-conselho').value),
@@ -119,11 +207,15 @@ export function initPacientes() {
                         vinculo: encriptar(document.getElementById('cad-vinculo').value)
                     });
                     showToast('Profissional salvo e criptografado com sucesso!', 'success');
+                    await registrarAuditoria({ acao: 'Criação', modulo: 'Profissionais', descricao: `Novo profissional cadastrado: ${nomeClaro}` });
                 }
 
                 modalCadastro.classList.remove('active');
                 e.target.reset();
                 pacienteEmEdicaoId = null; 
+                anexosEmEdicao = { foto: null, documento: null, outros: [] };
+                anexosParaExcluirDoStorage = [];
+                renderizarAnexosExistentes();
                 
                 await carregarPacientes(); 
                 await carregarProfissionais();
@@ -217,6 +309,7 @@ export function initPacientes() {
                     document.getElementById('pep-profissional').value = profId;
                 }
                 showToast('Evolução salva no Prontuário com sucesso!');
+                await registrarAuditoria({ acao: 'Criação', modulo: 'Prontuário', descricao: `Evolução registrada para ${paciente.nome} por ${profissional.nome}` });
             } catch (error) {
                 console.error("Erro ao salvar evolução: ", error);
                 showToast('Erro de conexão ao salvar ficha.', 'error');
@@ -240,9 +333,11 @@ export function initPacientes() {
             if (btnExcluir) {
                 const idPac = btnExcluir.getAttribute('data-id');
                 if (await confirmarAcao('Deseja excluir permanentemente este paciente? Todo o histórico de prontuário será perdido.', { titulo: 'Excluir paciente', textoConfirmar: 'Excluir' })) {
+                    const pacienteExcluido = clinicaState.pacientes.find(p => String(p.id) === String(idPac));
                     try {
                         await deleteDoc(doc(db, "pacientes", idPac));
                         showToast('Paciente excluído do sistema.', 'success');
+                        await registrarAuditoria({ acao: 'Exclusão', modulo: 'Pacientes', descricao: `Paciente excluído: ${pacienteExcluido ? pacienteExcluido.nome : idPac}` });
                         await carregarPacientes();
                     } catch (error) {
                         showToast('Falha ao excluir paciente.', 'error');
@@ -273,6 +368,14 @@ export function initPacientes() {
                     document.getElementById('cad-carteirinha').value = paciente.carteirinha || '';
                     document.getElementById('cad-emergencia').value = paciente.emergencia || '';
                     document.getElementById('cad-responsavel').value = paciente.responsavel || '';
+
+                    // Carrega os anexos já enviados (abrirModalCadastro zerou o
+                    // estado acima - aqui sobrescrevemos com os dados reais)
+                    anexosEmEdicao = paciente.anexos
+                        ? { foto: paciente.anexos.foto || null, documento: paciente.anexos.documento || null, outros: [...(paciente.anexos.outros || [])] }
+                        : { foto: null, documento: null, outros: [] };
+                    anexosParaExcluirDoStorage = [];
+                    renderizarAnexosExistentes();
                 }
             }
         });
@@ -285,9 +388,11 @@ export function initPacientes() {
             if (btn) {
                 const idProf = btn.getAttribute('data-id');
                 if (await confirmarAcao('Deseja remover este profissional do sistema?', { titulo: 'Remover profissional', textoConfirmar: 'Remover' })) {
+                    const profExcluido = clinicaState.profissionais.find(p => String(p.id) === String(idProf));
                     try {
                         await deleteDoc(doc(db, "profissionais", idProf));
                         showToast('Profissional removido.', 'success');
+                        await registrarAuditoria({ acao: 'Exclusão', modulo: 'Profissionais', descricao: `Profissional removido: ${profExcluido ? profExcluido.nome : idProf}` });
                         await carregarProfissionais(); 
                     } catch(error) {
                         showToast('Falha ao remover profissional.', 'error');
@@ -389,6 +494,55 @@ export function initPacientes() {
 
     if (btnBuscar) btnBuscar.addEventListener('click', executarBusca);
     if (inputBusca) inputBusca.addEventListener('keyup', executarBusca);
+}
+
+// ==========================================
+// ANEXOS DO PACIENTE (foto, documento de identidade, outros)
+// Armazenados no Firebase Storage; a URL de download fica salva no
+// próprio documento do paciente (não são dados sensíveis, então não
+// passam por encriptar()/decriptar() como os demais campos).
+// ==========================================
+const ROTULOS_ANEXO = { foto: 'Foto do paciente', documento: 'Documento de identidade' };
+
+function chipAnexo(rotulo, url, tipo, idx) {
+    const dataIdx = idx !== undefined ? ` data-idx="${idx}"` : '';
+    return `<span class="anexo-chip">
+        <a href="${url}" target="_blank" rel="noopener"><i class="fa-solid fa-paperclip"></i> ${escapeHTML(rotulo)}</a>
+        <button type="button" class="btn-remover-anexo" data-tipo="${tipo}"${dataIdx} title="Remover anexo"><i class="fa-solid fa-xmark"></i></button>
+    </span>`;
+}
+
+function renderizarAnexosExistentes() {
+    const wrapper = document.getElementById('anexos-existentes-container');
+    const container = document.getElementById('anexos-existentes-lista');
+    if (!wrapper || !container) return;
+
+    const temAlgo = anexosEmEdicao && (anexosEmEdicao.foto || anexosEmEdicao.documento || (anexosEmEdicao.outros && anexosEmEdicao.outros.length > 0));
+
+    if (!temAlgo) {
+        wrapper.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+
+    wrapper.style.display = 'block';
+    let html = '';
+    if (anexosEmEdicao.foto) html += chipAnexo(ROTULOS_ANEXO.foto, anexosEmEdicao.foto, 'foto');
+    if (anexosEmEdicao.documento) html += chipAnexo(ROTULOS_ANEXO.documento, anexosEmEdicao.documento, 'documento');
+    (anexosEmEdicao.outros || []).forEach((url, idx) => {
+        html += chipAnexo(`Outro documento ${idx + 1}`, url, 'outro', idx);
+    });
+    container.innerHTML = html;
+}
+
+// Envia um arquivo para o Storage em pacientes/{clinicaId}/{subpasta}/... e
+// devolve a URL pública de download já salva no cadastro do paciente.
+async function uploadAnexo(file, subpasta) {
+    const nomeSeguro = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const caminho = `pacientes/${clinicaState.sessao.clinicaId}/${subpasta}/${Date.now()}_${nomeSeguro}`;
+    const arquivoRef = ref(storage, caminho);
+    await uploadBytes(arquivoRef, file);
+    return await getDownloadURL(arquivoRef);
 }
 
 export function abrirProntuario(idPaciente) {
@@ -498,6 +652,23 @@ export function renderizarResumoPacienteAtivo() {
             elAlergias.innerHTML = `<i class="fa-solid fa-check"></i> Sem alergias`;
             elAlergias.className = 'pep-badge neutral';
         }
+    }
+
+    // Foto do paciente no avatar (se houver anexo) e links dos demais anexos
+    const elAvatar = document.getElementById('pep-avatar');
+    if (elAvatar) {
+        elAvatar.innerHTML = paciente.anexos && paciente.anexos.foto
+            ? `<img src="${paciente.anexos.foto}" alt="Foto de ${escapeHTML(paciente.nome)}">`
+            : '<i class="fa-solid fa-hospital-user"></i>';
+    }
+
+    const elAnexosLinks = document.getElementById('pep-anexos-links');
+    if (elAnexosLinks) {
+        const anexos = paciente.anexos || {};
+        let html = '';
+        if (anexos.documento) html += `<a class="pep-badge link" href="${anexos.documento}" target="_blank" rel="noopener"><i class="fa-solid fa-id-card"></i> Documento</a>`;
+        if (anexos.outros && anexos.outros.length > 0) html += `<a class="pep-badge link" href="${anexos.outros[0]}" target="_blank" rel="noopener"><i class="fa-solid fa-paperclip"></i> Outros (${anexos.outros.length})</a>`;
+        elAnexosLinks.innerHTML = html;
     }
 }
 

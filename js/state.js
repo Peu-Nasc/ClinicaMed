@@ -15,5 +15,6 @@ export const clinicaState = {
     estoque: [],
     financeiro: { lancamentos: [], custosFixos: [] },
     agenda: { agendamentos: [], bloqueios: [] },
-    notificacoes: []
+    notificacoes: [],
+    auditoria: []
 };

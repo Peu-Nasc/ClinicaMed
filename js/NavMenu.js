@@ -1,8 +1,11 @@
 // Precisamos importar o que formos usar de outros módulos, se necessário
+import { clinicaState } from './state.js';
+import { showToast } from './Ferramentas.js';
 import { calcularDRE } from './financeiro.js';
 import { atualizarAgenda } from './agenda.js';
 import { verificarAlertasEstoque } from './estoque.js';
 import { atualizarListaNotificacoes } from './notificacoes.js';
+import { atualizarTabelaAuditoria } from './auditoria.js';
 
 export function initUI() {
     const sidebar = document.getElementById('sidebar');
@@ -28,10 +31,20 @@ export function initUI() {
     // Lógica de navegação da SPA
     document.querySelectorAll('.menu-btn').forEach(button => {
         button.addEventListener('click', (e) => {
+            const target = e.currentTarget.getAttribute('data-target');
+
+            // Trava de acesso real (não só visual): mesmo que alguém force o
+            // clique/hash pra "auditoria", só o Administrador consegue trocar
+            // de fato de aba - os demais perfis nem veem o botão, mas essa
+            // segunda barreira evita depender só do CSS/display do menu.
+            if (target === 'auditoria' && clinicaState.sessao.perfil !== 'admin') {
+                showToast('Acesso restrito ao Administrador.', 'error');
+                return;
+            }
+
             document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
             document.querySelectorAll('.menu-btn').forEach(btn => btn.classList.remove('active'));
             
-            const target = e.currentTarget.getAttribute('data-target');
             document.getElementById(target).classList.add('active');
             e.currentTarget.classList.add('active');
             fecharMenuMobile();
@@ -41,6 +54,7 @@ export function initUI() {
             if (target === 'dashboard') calcularDRE();
             if (target === 'agenda') atualizarAgenda();
             if (target === 'notificacoes') atualizarListaNotificacoes(document.getElementById('filtro-notificacoes')?.value || 'pendentes');
+            if (target === 'auditoria') atualizarTabelaAuditoria();
         });
     });
 
