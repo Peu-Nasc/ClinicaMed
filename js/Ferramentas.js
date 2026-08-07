@@ -108,6 +108,30 @@ export function confirmarAcao(mensagem, opcoes = {}) {
 }
 
 // ========================================================
+// RODAPÉ INSTITUCIONAL (autoria / LGPD / termos de uso)
+// Marca d'água fixa do sistema - mostra o ano atual e abre o
+// modal com o texto completo de direitos autorais e LGPD.
+// ========================================================
+export function initFooterInstitucional() {
+    const elAno = document.getElementById('footer-ano-atual');
+    if (elAno) elAno.textContent = new Date().getFullYear();
+
+    const modal = document.getElementById('modal-termos');
+    const btnAbrir = document.getElementById('btn-abrir-termos');
+    const btnFechar = document.getElementById('btn-close-termos');
+    if (!modal || !btnAbrir) return;
+
+    btnAbrir.addEventListener('click', () => modal.classList.add('active'));
+    if (btnFechar) btnFechar.addEventListener('click', () => modal.classList.remove('active'));
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('active');
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) modal.classList.remove('active');
+    });
+}
+
+// ========================================================
 // ESTADO DE CARREGAMENTO DE BOTÃO (antes repetido em todo
 // formulário: guardar innerHTML, trocar por spinner, desabilitar,
 // e no final restaurar - agora é uma linha só)

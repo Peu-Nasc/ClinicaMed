@@ -85,9 +85,9 @@ export function initFinanceiro() {
         });
     }
 
-    const btnExportarCSV = document.getElementById('btn-exportar-financeiro');
-    if (btnExportarCSV) {
-        btnExportarCSV.addEventListener('click', exportarFinanceiroCSV);
+    const btnExportarExcel = document.getElementById('btn-exportar-financeiro');
+    if (btnExportarExcel) {
+        btnExportarExcel.addEventListener('click', exportarFinanceiroExcel);
     }
 
     // ========================================================
@@ -746,51 +746,246 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
 }
 
 // ========================================================
-// EXPORTAÇÃO DO LIVRO CAIXA EM CSV (respeita o filtro atual da tela)
+// EXPORTAÇÃO DO RELATÓRIO FINANCEIRO EM EXCEL (respeita o filtro atual da tela)
+// Gera um arquivo .xlsx (via ExcelJS) com duas abas:
+//   - "Dados": os lançamentos brutos filtrados (só os liquidados)
+//   - "Resumo": receita e despesa agrupadas por forma de pagamento,
+//     com fórmulas SUMIFS que leem direto da aba "Dados" (não são
+//     valores fixos - se você editar a planilha, os totais recalculam),
+//     total geral, lucro líquido e um gráfico de pizza da receita.
+//
+// Observação técnica: bibliotecas JS gratuitas para gerar .xlsx no
+// navegador (ExcelJS/SheetJS) não conseguem criar um gráfico nativo
+// editável do Excel - isso só é possível com Excel de verdade ou libs
+// pagas. Por isso o gráfico de pizza aqui é inserido como IMAGEM
+// (renderizada com Chart.js), mas os números da planilha continuam
+// sendo fórmulas de verdade, editáveis e recalculáveis.
 // ========================================================
-export function exportarFinanceiroCSV() {
+
+const CATEGORIAS_PAGAMENTO = [
+    { chave: 'Pix', label: 'Pix' },
+    { chave: 'Credito', label: 'Cartão de Crédito' },
+    { chave: 'Debito', label: 'Cartão de Débito' },
+    { chave: 'Boleto', label: 'Boleto / Transferência' },
+    { chave: 'Dinheiro', label: 'Dinheiro Físico' }
+];
+
+// Renderiza um gráfico de pizza fora da tela (canvas temporário) e devolve
+// a imagem em base64, pronta para ser embutida na planilha.
+function renderizarGraficoPizzaBase64(labels, valores) {
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 480;
+        canvas.height = 320;
+        canvas.style.position = 'absolute';
+        canvas.style.left = '-9999px';
+        document.body.appendChild(canvas);
+
+        const cores = ['#0F4C75', '#3282B8', '#27AE60', '#F39C12', '#8E44AD', '#E74C3C'];
+
+        const chart = new Chart(canvas, {
+            type: 'pie',
+            data: {
+                labels,
+                datasets: [{ data: valores, backgroundColor: cores.slice(0, labels.length) }]
+            },
+            options: {
+                responsive: false,
+                animation: false,
+                plugins: {
+                    title: { display: true, text: 'Receitas por Forma de Pagamento', font: { size: 14 } },
+                    legend: { position: 'bottom', labels: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        // animation:false já desenha de forma síncrona, mas aguardamos
+        // um frame por segurança antes de capturar a imagem do canvas
+        requestAnimationFrame(() => {
+            const dataUrl = canvas.toDataURL('image/png');
+            chart.destroy();
+            document.body.removeChild(canvas);
+            resolve(dataUrl);
+        });
+    });
+}
+
+export async function exportarFinanceiroExcel() {
     const searchFin = document.getElementById('search-financeiro');
     const mesFin = document.getElementById('filtro-mes-financeiro');
     const filtroTexto = searchFin ? searchFin.value.toLowerCase() : '';
     const filtroMes = mesFin ? mesFin.value : 'todos';
 
-    const lancamentos = filtrarLancamentos(filtroTexto, filtroMes).slice().reverse();
+    // Só entram no relatório os lançamentos já liquidados - é a mesma regra
+    // que a DRE do dashboard usa pra contar Receitas/Despesas (ver calcularDRE)
+    const lancamentos = filtrarLancamentos(filtroTexto, filtroMes)
+        .filter(l => l.status === 'Recebido/Pago')
+        .slice()
+        .sort((a, b) => a.competencia.localeCompare(b.competencia));
 
     if (lancamentos.length === 0) {
-        showToast('Nenhum lançamento para exportar com o filtro atual.', 'warning');
+        showToast('Nenhum lançamento liquidado para exportar com o filtro atual.', 'warning');
         return;
     }
 
-    const cabecalho = ['Competência', 'Data de Caixa', 'Tipo', 'Vínculo', 'Forma de Pagamento', 'Status', 'Valor (R$)'];
-    const linhas = lancamentos.map(l => [
-        l.competencia.split('-').reverse().join('/'),
-        l.caixa.split('-').reverse().join('/'),
-        l.tipo,
-        l.vinculo,
-        l.pagamento,
-        l.status,
-        l.valor.toFixed(2).replace('.', ',')
-    ]);
+    const btnExportar = document.getElementById('btn-exportar-financeiro');
 
-    // Ponto e vírgula como separador (padrão que o Excel em pt-BR reconhece automaticamente)
-    const csv = [cabecalho, ...linhas]
-        .map(linha => linha.map(campo => `"${String(campo).replace(/"/g, '""')}"`).join(';'))
-        .join('\r\n');
+    await comEstadoDeCarregamento(btnExportar, 'Gerando Excel...', async () => {
+        try {
+            // Agregação em JS usada só para desenhar o gráfico - os números que
+            // aparecem na planilha em si vêm das fórmulas SUMIFS, não destes valores
+            const receitaPorPagamento = {};
+            CATEGORIAS_PAGAMENTO.forEach(c => { receitaPorPagamento[c.chave] = 0; });
+            lancamentos.forEach(l => {
+                if (l.tipo === 'Receita' && receitaPorPagamento[l.pagamento] !== undefined) {
+                    receitaPorPagamento[l.pagamento] += l.valor;
+                }
+            });
 
-    // BOM no início garante que acentuação (UTF-8) apareça corretamente no Excel
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const dataAtual = new Date().toISOString().split('T')[0];
+            const categoriasComReceita = CATEGORIAS_PAGAMENTO.filter(c => receitaPorPagamento[c.chave] > 0);
+            const imagemGraficoBase64 = categoriasComReceita.length > 0
+                ? await renderizarGraficoPizzaBase64(categoriasComReceita.map(c => c.label), categoriasComReceita.map(c => receitaPorPagamento[c.chave]))
+                : null;
 
-    link.href = url;
-    link.download = `livro-caixa_${dataAtual}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'GestãoPRO';
+            workbook.created = new Date();
 
-    showToast(`${lancamentos.length} lançamento(s) exportado(s) com sucesso.`, 'success');
+            // ================= ABA "Dados" (base para as fórmulas do Resumo) =================
+            const abaDados = workbook.addWorksheet('Dados');
+            abaDados.columns = [
+                { header: 'Competência', key: 'competencia', width: 14 },
+                { header: 'Data de Caixa', key: 'caixa', width: 14 },
+                { header: 'Tipo', key: 'tipo', width: 16 },
+                { header: 'Vínculo', key: 'vinculo', width: 28 },
+                { header: 'Forma de Pagamento', key: 'pagamento', width: 20 },
+                { header: 'Status', key: 'status', width: 16 },
+                { header: 'Valor', key: 'valor', width: 14 }
+            ];
+            abaDados.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            abaDados.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F4C75' } };
+
+            lancamentos.forEach(l => {
+                abaDados.addRow({
+                    competencia: l.competencia.split('-').reverse().join('/'),
+                    caixa: l.caixa.split('-').reverse().join('/'),
+                    tipo: l.tipo,
+                    vinculo: l.vinculo,
+                    pagamento: l.pagamento,
+                    status: l.status,
+                    valor: l.valor
+                });
+            });
+            abaDados.getColumn('valor').numFmt = '"R$" #,##0.00';
+            const ultimaLinhaDados = abaDados.rowCount;
+
+            // ================= ABA "Resumo" =================
+            const abaResumo = workbook.addWorksheet('Resumo', { views: [{ showGridLines: false }] });
+            abaResumo.getColumn(1).width = 30;
+            abaResumo.getColumn(2).width = 18;
+            abaResumo.getColumn(4).width = 4;
+
+            abaResumo.mergeCells('A1:B1');
+            abaResumo.getCell('A1').value = 'Relatório Financeiro — GestãoPRO';
+            abaResumo.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0F4C75' } };
+
+            abaResumo.getCell('A2').value = `Período: ${filtroMes === 'todos' ? 'Todos os meses' : filtroMes} | Gerado em ${new Date().toLocaleString('pt-BR')}`;
+            abaResumo.getCell('A2').font = { italic: true, size: 9, color: { argb: 'FF6C757D' } };
+
+            let linha = 4;
+
+            const escreverTituloSecao = (texto) => {
+                abaResumo.mergeCells(`A${linha}:B${linha}`);
+                const cel = abaResumo.getCell(`A${linha}`);
+                cel.value = texto;
+                cel.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F4C75' } };
+                linha++;
+            };
+
+            const escreverLinhaCategoria = (label, formula) => {
+                abaResumo.getCell(`A${linha}`).value = label;
+                const celValor = abaResumo.getCell(`B${linha}`);
+                celValor.value = { formula };
+                celValor.numFmt = '"R$" #,##0.00';
+                linha++;
+            };
+
+            const escreverLinhaTotal = (label, formula) => {
+                const celLabel = abaResumo.getCell(`A${linha}`);
+                celLabel.value = label;
+                celLabel.font = { bold: true };
+                celLabel.border = { top: { style: 'thin' } };
+                const celValor = abaResumo.getCell(`B${linha}`);
+                celValor.value = { formula };
+                celValor.numFmt = '"R$" #,##0.00';
+                celValor.font = { bold: true };
+                celValor.border = { top: { style: 'thin' } };
+                linha++;
+            };
+
+            // --- Receita dividida por forma de pagamento ---
+            escreverTituloSecao('RECEITAS POR FORMA DE PAGAMENTO');
+            const inicioReceita = linha;
+            CATEGORIAS_PAGAMENTO.forEach(c => {
+                escreverLinhaCategoria(c.label, `SUMIFS(Dados!$G$2:$G$${ultimaLinhaDados},Dados!$C$2:$C$${ultimaLinhaDados},"Receita",Dados!$E$2:$E$${ultimaLinhaDados},"${c.chave}")`);
+            });
+            const fimReceita = linha - 1;
+            escreverLinhaTotal('TOTAL RECEITAS', `SUM(B${inicioReceita}:B${fimReceita})`);
+            const linhaTotalReceita = linha - 1;
+
+            linha++; // linha em branco
+
+            // --- Despesas (Custo Fixo + Custo Variável + Repasse) por forma de pagamento ---
+            escreverTituloSecao('DESPESAS POR FORMA DE PAGAMENTO');
+            const inicioDespesa = linha;
+            CATEGORIAS_PAGAMENTO.forEach(c => {
+                escreverLinhaCategoria(c.label, `SUMIFS(Dados!$G$2:$G$${ultimaLinhaDados},Dados!$C$2:$C$${ultimaLinhaDados},"<>Receita",Dados!$E$2:$E$${ultimaLinhaDados},"${c.chave}")`);
+            });
+            const fimDespesa = linha - 1;
+            escreverLinhaTotal('TOTAL DESPESAS', `SUM(B${inicioDespesa}:B${fimDespesa})`);
+            const linhaTotalDespesa = linha - 1;
+
+            linha++; // linha em branco
+
+            // --- Lucro líquido (Total Receitas - Total Despesas) ---
+            const celLucroLabel = abaResumo.getCell(`A${linha}`);
+            celLucroLabel.value = 'LUCRO LÍQUIDO';
+            celLucroLabel.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+            celLucroLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF27AE60' } };
+
+            const celLucroValor = abaResumo.getCell(`B${linha}`);
+            celLucroValor.value = { formula: `B${linhaTotalReceita}-B${linhaTotalDespesa}` };
+            celLucroValor.numFmt = '"R$" #,##0.00';
+            celLucroValor.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+            celLucroValor.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF27AE60' } };
+
+            // --- Gráfico de pizza (imagem - ver observação técnica no topo da função) ---
+            if (imagemGraficoBase64) {
+                const imageId = workbook.addImage({ base64: imagemGraficoBase64, extension: 'png' });
+                abaResumo.addImage(imageId, { tl: { col: 4, row: 3 }, ext: { width: 480, height: 320 } });
+            }
+
+            // ================= GERA E BAIXA O ARQUIVO =================
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const dataAtual = new Date().toISOString().split('T')[0];
+
+            link.href = url;
+            link.download = `relatorio-financeiro_${dataAtual}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast(`Relatório Excel gerado com ${lancamentos.length} lançamento(s).`, 'success');
+        } catch (error) {
+            console.error("Erro ao gerar relatório Excel: ", error);
+            showToast('Falha ao gerar o relatório Excel.', 'error');
+        }
+    });
 }
 
 export async function carregarFinanceiro() {

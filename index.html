@@ -567,8 +567,8 @@
                                 <option value="todos">Todos os Meses</option>
                                 <!-- Os meses serão gerados automaticamente pelo JavaScript -->
                             </select>
-                            <button type="button" class="btn-secondary" id="btn-exportar-financeiro" title="Exportar lançamentos filtrados para CSV">
-                                <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                            <button type="button" class="btn-secondary" id="btn-exportar-financeiro" title="Exportar relatório Excel (receita por forma de pagamento, despesas e gráfico)">
+                                <i class="fa-solid fa-file-excel"></i> Exportar Excel
                             </button>
                         </div>
 
@@ -1026,12 +1026,70 @@
         </div>
     </div>
 
+    <!-- RODAPÉ FIXO: marca d'água institucional (autoria, LGPD, contato) -->
+    <footer class="app-footer" id="app-footer">
+        <div class="app-footer-left">
+            <span class="app-footer-copy">
+                <i class="fa-solid fa-copyright"></i> <span id="footer-ano-atual">2026</span> JS Ferreira
+            </span>
+            <span class="app-footer-sep">•</span>
+            <span class="app-footer-dev">Dev: Pedro Henrique Oliveira do Nascimento</span>
+            <span class="app-footer-sep">•</span>
+            <button type="button" class="app-footer-termos" id="btn-abrir-termos">
+                <i class="fa-solid fa-file-shield"></i> Termos de Uso
+            </button>
+        </div>
+        <div class="app-footer-contato">
+            <a href="https://www.jsferreira.com.br/" target="_blank" rel="noopener" title="Site oficial"><i class="fa-solid fa-globe"></i></a>
+            <a href="https://wa.me/5575981701297" target="_blank" rel="noopener" title="(75) 98170-1297"><i class="fa-brands fa-whatsapp"></i></a>
+            <a href="https://www.instagram.com/js.ferreira_mei/" target="_blank" rel="noopener" title="Instagram"><i class="fa-brands fa-instagram"></i></a>
+        </div>
+    </footer>
+
+    <div id="modal-termos" class="modal-overlay">
+        <div class="modal-content modal-lg">
+            <header class="modal-header">
+                <h2><i class="fa-solid fa-shield-halved"></i> Termos de Uso, Propriedade Intelectual e LGPD</h2>
+                <button class="btn-close-modal" id="btn-close-termos" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body termos-body">
+                <h3>1. Autoria e Propriedade Intelectual</h3>
+                <p>Este sistema, incluindo seu código-fonte, layout, banco de dados, fluxos de trabalho e demais elementos, foi integralmente desenvolvido por <strong>Pedro Henrique Oliveira do Nascimento</strong>, sob a marca <strong>JS Ferreira</strong>, e constitui propriedade intelectual exclusiva de seu autor, nos termos da Lei nº 9.610/1998 (Lei de Direitos Autorais) e da Lei nº 9.609/1998 (Lei de Software).</p>
+
+                <h3>2. Proibições</h3>
+                <p>É expressamente <strong>proibida</strong>, sem autorização prévia e por escrito do autor:</p>
+                <ul>
+                    <li>A cópia, reprodução, engenharia reversa ou distribuição total ou parcial do sistema;</li>
+                    <li>O compartilhamento do código-fonte, telas ou funcionalidades com terceiros;</li>
+                    <li>A utilização do sistema, ou de qualquer parte dele, como base para desenvolvimento de outro produto (plágio);</li>
+                    <li>A sublicença, revenda ou cessão de uso a terceiros não autorizados pelo contratante original.</li>
+                </ul>
+                <p>O descumprimento sujeita o infrator às sanções cíveis e criminais previstas na legislação vigente, incluindo indenização por perdas e danos.</p>
+
+                <h3>3. Proteção de Dados (LGPD)</h3>
+                <p>O tratamento dos dados pessoais e dados sensíveis (incluindo dados de saúde) inseridos neste sistema observa os princípios da Lei nº 13.709/2018 (Lei Geral de Proteção de Dados - LGPD), com finalidade exclusiva de gestão clínica e administrativa da unidade contratante. O acesso é restrito por perfil de usuário (controle RBAC), e informações sensíveis do prontuário são armazenadas de forma criptografada. Cabe à clínica contratante, na qualidade de controladora dos dados, garantir o uso adequado das informações de seus pacientes e colaboradores.</p>
+
+                <h3>4. Licença de Uso</h3>
+                <p>O uso deste sistema é concedido exclusivamente à clínica contratante, de forma pessoal e intransferível, permanecendo todos os direitos de propriedade intelectual reservados a JS Ferreira.</p>
+
+                <h3>5. Contato</h3>
+                <p>
+                    <i class="fa-solid fa-globe"></i> <a href="https://www.jsferreira.com.br/" target="_blank" rel="noopener">www.jsferreira.com.br</a><br>
+                    <i class="fa-brands fa-whatsapp"></i> (75) 98170-1297<br>
+                    <i class="fa-brands fa-instagram"></i> <a href="https://www.instagram.com/js.ferreira_mei/" target="_blank" rel="noopener">@js.ferreira_mei</a><br>
+                    <i class="fa-solid fa-user"></i> Desenvolvedor: Pedro Henrique Oliveira do Nascimento
+                </p>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" class="toast-container"></div>
     <script src="https://unpkg.com/imask"></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     
     <script type="module" src="js/main.js"></script>
 </body>
