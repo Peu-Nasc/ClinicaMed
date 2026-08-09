@@ -319,6 +319,74 @@ export function initPacientes() {
     });
 
     // ==========================================
+    // EXAMES SOLICITADOS
+    // Aba independente da evolução: registra a solicitação no prontuário
+    // (criptografada, como o restante do histórico clínico) e dispara uma
+    // notificação em tempo real para a recepção conseguir oferecer o
+    // agendamento ainda com o paciente na clínica.
+    // ==========================================
+    const formExames = document.getElementById('form-exames-solicitados');
+    if (formExames) {
+        formExames.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!pacienteAtivoId) return;
+
+            const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
+            const btnSalvar = e.target.querySelector('button[type="submit"]');
+
+            const profId = document.getElementById('pep-profissional').value;
+            const profissional = clinicaState.profissionais.find(p => String(p.id) === String(profId));
+            if (!profissional) {
+                showToast('Selecione o profissional responsável na aba "Nova Evolução" antes de solicitar exames.', 'warning');
+                return;
+            }
+
+            const textareaExames = document.getElementById('pep-exames-lista');
+            const exames = textareaExames.value.split('\n').map(l => l.trim()).filter(Boolean);
+            if (exames.length === 0) {
+                showToast('Liste ao menos um exame.', 'warning');
+                return;
+            }
+
+            await comEstadoDeCarregamento(btnSalvar, 'Registrando...', async () => {
+                const novaSolicitacao = {
+                    data: new Date().toLocaleString('pt-BR'),
+                    examesCripto: encriptar(exames.join('; ')),
+                    profissional: profissional.nome
+                };
+
+                if (!paciente.examesSolicitados) paciente.examesSolicitados = [];
+                paciente.examesSolicitados.push(novaSolicitacao);
+
+                try {
+                    await updateDoc(doc(db, "pacientes", paciente.id), { examesSolicitados: paciente.examesSolicitados });
+
+                    // Notificação em texto simples (não criptografada) - mesmo
+                    // padrão já usado no aviso de retorno pendente: é um recado
+                    // operacional de curta duração pra recepção agir, não um
+                    // dado de prontuário de longo prazo.
+                    await criarNotificacao({
+                        tipo: 'exame_solicitado',
+                        titulo: `Exame(s) solicitado(s): ${paciente.nome}`,
+                        mensagem: `${profissional.nome} solicitou: ${exames.join(', ')}. Ofereça o agendamento ao paciente antes que ele saia da clínica.`,
+                        pacienteId: paciente.id,
+                        pacienteNome: paciente.nome
+                    });
+
+                    renderizarExamesSolicitados(paciente);
+                    textareaExames.value = '';
+                    showToast('Exame(s) registrado(s) e recepção notificada!', 'success');
+                    await registrarAuditoria({ acao: 'Criação', modulo: 'Prontuário', descricao: `Exames solicitados para ${paciente.nome}: ${exames.join(', ')}` });
+                } catch (error) {
+                    console.error("Erro ao registrar exames solicitados: ", error);
+                    showToast('Erro de conexão ao registrar exames.', 'error');
+                    paciente.examesSolicitados.pop();
+                }
+            });
+        });
+    }
+
+    // ==========================================
     // DELEGAÇÃO DE EVENTOS DAS TABELAS
     // ==========================================
     const patientListBody = document.getElementById('patient-table-body-list');
@@ -580,6 +648,7 @@ export function abrirProntuario(idPaciente) {
         }
         
         renderizarEvolucoes(paciente);
+        renderizarExamesSolicitados(paciente);
         renderizarResumoPacienteAtivo();
 
         // Reseta o gerador de documentos ao trocar de paciente, para não
@@ -591,13 +660,21 @@ export function abrirProntuario(idPaciente) {
         
         const areaHistorico = document.querySelector('.pep-historico'); 
         const formEvolucao = document.querySelector('.pep-nova-evolucao'); 
+        // Aba de Exames Solicitados é clínica (mesmo nível de sigilo da
+        // evolução) - só aparece pra quem está logado como Doutor(a).
+        // Escondida por id, não pela classe .pep-nova-evolucao/.pep-historico,
+        // porque essas classes já se repetem em outros blocos da tela e
+        // querySelector só pegaria o primeiro elemento.
+        const tabBtnExames = document.getElementById('tab-btn-exames');
         
         if (clinicaState.sessao.perfil !== 'Doutor(a)') {
             if(areaHistorico) areaHistorico.style.display = 'none';
             if(formEvolucao) formEvolucao.style.display = 'none';
+            if(tabBtnExames) tabBtnExames.style.display = 'none';
         } else {
             if(areaHistorico) areaHistorico.style.display = 'block';
             if(formEvolucao) formEvolucao.style.display = 'block';
+            if(tabBtnExames) tabBtnExames.style.display = '';
         }
 
         const listaContainer = document.getElementById('lista-pacientes-container');
@@ -626,6 +703,26 @@ function renderizarEvolucoes(paciente) {
             <div class="timeline-content">${textoFormatado}</div>
         </details>
     `}).join('') || '<p>Sem registros anteriores.</p>';
+}
+
+// Histórico de exames solicitados no prontuário - mesma lógica de
+// criptografia/descriptografia das evoluções (dado clínico, texto livre).
+function renderizarExamesSolicitados(paciente) {
+    const container = document.getElementById('pep-exames-timeline');
+    if (!container) return;
+
+    const lista = paciente.examesSolicitados || [];
+
+    container.innerHTML = lista.slice().reverse().map(s => {
+        const examesTexto = decriptar(s.examesCripto);
+        return `
+        <div class="dash-list-item" style="align-items: flex-start;">
+            <div>
+                <strong><i class="fa-solid fa-flask-vial"></i> ${escapeHTML(examesTexto)}</strong><br>
+                <span style="color: var(--text-light); font-size: 0.85rem;">Solicitado por ${escapeHTML(s.profissional)} em ${escapeHTML(s.data)}</span>
+            </div>
+        </div>`;
+    }).join('') || '<p style="color: var(--text-light); text-align: center; padding: 20px;">Nenhum exame solicitado ainda.</p>';
 }
 
 export function renderizarResumoPacienteAtivo() {

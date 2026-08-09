@@ -286,6 +286,7 @@
                             <div class="pep-tabs">
                                 <button class="tab-btn active" data-tab="tab-evolucao"><i class="fa-solid fa-notes-medical"></i> Nova Evolução</button>
                                 <button class="tab-btn" data-tab="tab-historico"><i class="fa-solid fa-clock-rotate-left"></i> Histórico Clínico</button>
+                                <button class="tab-btn" data-tab="tab-exames" id="tab-btn-exames"><i class="fa-solid fa-flask-vial"></i> Exames Solicitados</button>
                                 <button class="tab-btn" data-tab="tab-receita"><i class="fa-solid fa-file-prescription"></i> Receituário (Imprimir)</button>
                             </div>
 
@@ -318,7 +319,30 @@
                                 </div>
                             </div>
 
-                            <!-- ABA 3: GERADOR DE DOCUMENTOS MÉDICOS -->
+                            <!-- ABA 3: EXAMES SOLICITADOS -->
+                            <!-- Ao salvar, gera notificação em tempo real para a recepção
+                                 (e o admin também vê) na aba Notificações, permitindo
+                                 oferecer o agendamento ainda com o paciente na clínica. -->
+                            <div id="tab-exames" class="tab-content">
+                                <div class="pep-nova-evolucao">
+                                    <h4>Solicitar Exames</h4>
+                                    <form id="form-exames-solicitados" class="form-grid">
+                                        <div class="form-group full-width">
+                                            <label>Exames a solicitar (um por linha)</label>
+                                            <textarea id="pep-exames-lista" class="textarea-form" rows="4" placeholder="Ex:&#10;Hemograma completo&#10;Raio-X de tórax&#10;Glicemia em jejum" required></textarea>
+                                        </div>
+                                        <div class="form-actions full-width">
+                                            <button type="submit" class="btn-primary"><i class="fa-solid fa-flask-vial"></i> Registrar e Notificar Recepção</button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="pep-historico mt-20">
+                                    <h4>Exames Já Solicitados</h4>
+                                    <div class="dash-list" id="pep-exames-timeline"></div>
+                                </div>
+                            </div>
+
+                            <!-- ABA 4: GERADOR DE DOCUMENTOS MÉDICOS -->
                             <div id="tab-receita" class="tab-content">
                                 <div class="pep-nova-evolucao">
                                     <h4>Gerador de Documentos Médicos</h4>

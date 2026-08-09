@@ -4,6 +4,7 @@ import { db, collection, addDoc, doc, updateDoc, query, where, onSnapshot } from
 
 const ICONES_TIPO = {
     retorno_pendente: 'fa-calendar-check',
+    exame_solicitado: 'fa-flask-vial',
     estoque: 'fa-boxes-stacked',
     financeiro: 'fa-cash-register',
     geral: 'fa-bell'
