@@ -174,5 +174,6 @@ export function initMasks() {
     IMask(document.getElementById('cad-cpf'), maskOptions.cpf);
     IMask(document.getElementById('cad-tel'), maskOptions.telefone);
     IMask(document.getElementById('fin-valor'), maskOptions.moeda);
+    if (document.getElementById('fr-valor')) IMask(document.getElementById('fr-valor'), maskOptions.moeda);
     IMask(document.getElementById('custo-valor'), maskOptions.moeda);
 }

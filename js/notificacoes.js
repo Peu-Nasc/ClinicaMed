@@ -1,14 +1,56 @@
 import { clinicaState } from './state.js';
-import { showToast, escapeHTML } from './Ferramentas.js';
+import { showToast, escapeHTML, confirmarAcao } from './Ferramentas.js';
 import { db, collection, addDoc, doc, updateDoc, query, where, onSnapshot } from './firebase.js';
+import { registrarAuditoria } from './auditoria.js';
 
 const ICONES_TIPO = {
     retorno_pendente: 'fa-calendar-check',
     exame_solicitado: 'fa-flask-vial',
+    encaminhamento: 'fa-share-from-square',
     estoque: 'fa-boxes-stacked',
     financeiro: 'fa-cash-register',
+    pagamento_pendente: 'fa-hand-holding-dollar',
     geral: 'fa-bell'
 };
+
+// ========================================================
+// POPUP DE CONFIRMAÇÃO DE PAGAMENTO (fundo desfocado)
+// Disparado quando uma consulta é marcada como "Concluído" na
+// Agenda (ver agenda.js). Reaproveita o modal de confirmação
+// que já existe no sistema (Ferramentas.js) em vez de travar
+// a recepção com mais um componente novo.
+// ========================================================
+async function tratarNotificacaoPagamento(n) {
+    const confirmou = await confirmarAcao(
+        `${n.mensagem} O pagamento foi realizado?`,
+        { titulo: n.titulo || 'Confirmar pagamento', textoConfirmar: 'Pagamento Confirmado', perigoso: false }
+    );
+
+    if (!confirmou) {
+        // Sem confirmação agora: a pendência continua na lista normal de
+        // Notificações (status ainda "pendente"), a recepção resolve depois.
+        return;
+    }
+
+    try {
+        await updateDoc(doc(db, "notificacoes", n.id), {
+            status: 'concluida',
+            resolvidoPor: clinicaState.sessao.nome,
+            resolvidoEm: new Date().toISOString()
+        });
+
+        await registrarAuditoria({
+            acao: 'Edição',
+            modulo: 'Financeiro',
+            descricao: `Pagamento confirmado: ${n.pacienteNome || 'paciente'}`
+        });
+
+        showToast('Pagamento confirmado com sucesso.', 'success');
+    } catch (error) {
+        console.error("Erro ao confirmar pagamento: ", error);
+        showToast('Falha ao confirmar pagamento. Tente novamente pela lista de Notificações.', 'error');
+    }
+}
 
 export function initNotificacoes() {
     const lista = document.getElementById('notificacoes-lista');
@@ -86,8 +128,15 @@ export function escutarNotificacoes() {
         if (!primeiraCarga) {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === 'added' && change.doc.data().status === 'pendente') {
-                    const n = change.doc.data();
-                    showToast(`Nova pendência: ${n.titulo}`, 'warning');
+                    const n = { ...change.doc.data(), id: String(change.doc.id) };
+
+                    // Pendência de pagamento: quem está na recepção recebe o
+                    // popup de confirmação na hora, em vez de só o toast.
+                    if (n.tipo === 'pagamento_pendente' && clinicaState.sessao.perfil === 'recepcao') {
+                        tratarNotificacaoPagamento(n);
+                    } else {
+                        showToast(`Nova pendência: ${n.titulo}`, 'warning');
+                    }
                 }
             });
         }

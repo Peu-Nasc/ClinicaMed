@@ -1,6 +1,8 @@
 import { clinicaState } from './state.js';
 import { showToast, comEstadoDeCarregamento, escapeHTML, confirmarAcao } from './Ferramentas.js';
 import { db, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, where } from './firebase.js';
+import { criarNotificacao } from './notificacoes.js';
+import { registrarAuditoria } from './auditoria.js';
 
 const appointmentTimes = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
@@ -44,6 +46,11 @@ export function initAgenda() {
     
     inputDataAgenda.addEventListener('change', atualizarAgenda);
     filtroProfissional.addEventListener('change', atualizarAgenda);
+
+    // Recalcula quais salas estão livres sempre que a data/hora do
+    // agendamento (dentro do modal) mudar.
+    document.getElementById('agenda-data').addEventListener('change', atualizarDisponibilidadeSalas);
+    document.getElementById('agenda-hora').addEventListener('change', atualizarDisponibilidadeSalas);
 
     // ==========================================
     // BLOQUEIO DE HORÁRIO / FOLGA
@@ -89,13 +96,19 @@ export function initAgenda() {
             }
 
             try {
+                const profissional = clinicaState.profissionais.find(p => String(p.id) === String(profId));
+                const motivo = document.getElementById('bloqueio-motivo').value;
+
                 await addDoc(collection(db, "bloqueios_agenda"), {
                     profId: String(profId),
                     data,
                     tipo,
                     horaInicio,
                     horaFim,
-                    motivo: document.getElementById('bloqueio-motivo').value,
+                    motivo,
+                    // Quem realizou o bloqueio - pra rastrear na Auditoria quem
+                    // mexeu na agenda de qual profissional
+                    bloqueadoPor: clinicaState.sessao.nome,
                     clinicaId: clinicaState.sessao.clinicaId
                 });
 
@@ -103,6 +116,12 @@ export function initAgenda() {
                 e.target.reset();
                 grupoHorarioEspecifico.style.display = 'none';
                 showToast('Horário bloqueado com sucesso.', 'success');
+
+                await registrarAuditoria({
+                    acao: 'Criação',
+                    modulo: 'Agenda',
+                    descricao: `Horário bloqueado para ${profissional ? profissional.nome : profId} em ${data}${tipo === 'dia_inteiro' ? ' (dia inteiro)' : ` (${horaInicio} às ${horaFim})`}${motivo ? ' - ' + motivo : ''}`
+                });
 
                 await carregarBloqueios();
             } catch (error) {
@@ -120,9 +139,15 @@ export function initAgenda() {
         await comEstadoDeCarregamento(btnSalvar, 'Agendando...', async () => {
             const pacId = document.getElementById('agenda-paciente').value;
             const profId = document.getElementById('agenda-profissional').value;
+            const sala = document.getElementById('agenda-sala').value;
             const dataAgendamento = document.getElementById('agenda-data').value;
             const horaAgendamento = document.getElementById('agenda-hora').value;
             const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacId));
+
+            if (!sala) {
+                showToast('Selecione a sala onde a consulta vai acontecer.', 'error');
+                return;
+            }
 
             // SISTEMA DE BLOQUEIO (Impede choque de horários)
             // Consultas com status "cancelado" não ocupam mais o horário -
@@ -140,6 +165,21 @@ export function initAgenda() {
                 return; 
             }
 
+            // CONTROLE DE SALAS: a clínica tem menos salas físicas do que
+            // profissionais rotativos, então uma sala só pode estar com UM
+            // profissional por horário, não importa quem seja.
+            const salaOcupada = clinicaState.agenda.agendamentos.find(a =>
+                String(a.sala) === String(sala) &&
+                a.data === dataAgendamento &&
+                a.hora === horaAgendamento &&
+                a.status !== 'cancelado'
+            );
+
+            if (salaOcupada) {
+                showToast(`A Sala ${sala} já está ocupada por outro profissional nesse horário.`, 'error');
+                return;
+            }
+
             const bloqueio = obterBloqueio(profId, dataAgendamento, horaAgendamento);
             if (bloqueio) {
                 showToast('Este horário está bloqueado (folga/indisponibilidade) para este profissional.', 'error');
@@ -151,6 +191,7 @@ export function initAgenda() {
                     pacId: String(pacId),
                     pacNome: paciente ? paciente.nome : 'Paciente',
                     profId: String(profId),
+                    sala: String(sala),
                     data: dataAgendamento,
                     hora: horaAgendamento,
                     tipo: document.getElementById('agenda-tipo').value,
@@ -258,9 +299,18 @@ export function initAgenda() {
                 e.stopPropagation();
                 if (await confirmarAcao('Deseja remover este bloqueio e liberar o horário?', { titulo: 'Remover bloqueio', textoConfirmar: 'Remover', perigoso: false })) {
                     const idBloqueio = btnRemoverBloqueio.getAttribute('data-id');
+                    const bloqueioRemovido = clinicaState.agenda.bloqueios.find(b => String(b.id) === String(idBloqueio));
                     try {
                         await deleteDoc(doc(db, "bloqueios_agenda", idBloqueio));
                         showToast('Bloqueio removido.', 'success');
+                        if (bloqueioRemovido) {
+                            const profissional = clinicaState.profissionais.find(p => String(p.id) === String(bloqueioRemovido.profId));
+                            await registrarAuditoria({
+                                acao: 'Exclusão',
+                                modulo: 'Agenda',
+                                descricao: `Bloqueio removido: ${profissional ? profissional.nome : bloqueioRemovido.profId} em ${bloqueioRemovido.data}`
+                            });
+                        }
                         await carregarBloqueios();
                     } catch (error) {
                         console.error("Erro ao remover bloqueio: ", error);
@@ -296,6 +346,26 @@ export function initAgenda() {
                 try {
                     await updateDoc(doc(db, "agendamentos", idAgendamento), { status: novoStatus });
                     showToast('Status atualizado!', 'success');
+
+                    // GATILHO DO POPUP DE PAGAMENTO: ao concluir a consulta,
+                    // avisa a recepção para confirmar se o pagamento foi
+                    // feito. A notificação chega em tempo real (onSnapshot em
+                    // notificacoes.js) e, se quem estiver logado for da
+                    // recepção, abre o popup automaticamente em vez de só
+                    // um toast (ver tratarNotificacaoPagamento).
+                    if (novoStatus === 'concluido') {
+                        const agendamentoConcluido = clinicaState.agenda.agendamentos.find(a => String(a.id) === String(idAgendamento));
+                        if (agendamentoConcluido) {
+                            await criarNotificacao({
+                                tipo: 'pagamento_pendente',
+                                titulo: 'Confirmar pagamento',
+                                mensagem: `A consulta de ${agendamentoConcluido.pacNome} (${agendamentoConcluido.tipo || 'Consulta'}) foi concluída.`,
+                                pacienteId: agendamentoConcluido.pacId,
+                                pacienteNome: agendamentoConcluido.pacNome
+                            });
+                        }
+                    }
+
                     await carregarAgendamentos(); 
                 } catch (error) {
                     console.error("Erro ao atualizar status: ", error);
@@ -338,8 +408,39 @@ export function abrirModalAgendamento(hora = '', profId = '', data = '') {
     else selectHora.value = ""; 
     
     if(profId) selProf.value = profId;
+
+    document.getElementById('agenda-sala').value = '';
+    atualizarDisponibilidadeSalas();
     
     modalAgenda.classList.add('active');
+}
+
+// Marca como desabilitada (e sinaliza no texto) qualquer sala que já
+// esteja ocupada por OUTRO profissional na data/horário escolhidos no
+// modal de agendamento - isso é o que impede o choque "4 médicos, 3 salas".
+function atualizarDisponibilidadeSalas() {
+    const selectSala = document.getElementById('agenda-sala');
+    if (!selectSala) return;
+
+    const data = document.getElementById('agenda-data').value;
+    const hora = document.getElementById('agenda-hora').value;
+
+    const ocupadas = new Set(
+        clinicaState.agenda.agendamentos
+            .filter(a => a.data === data && a.hora === hora && a.status !== 'cancelado')
+            .map(a => String(a.sala))
+    );
+
+    const valorAtual = selectSala.value;
+    Array.from(selectSala.options).forEach(opt => {
+        if (!opt.value) return; // opção "Selecione a sala..."
+        const ocupada = ocupadas.has(opt.value);
+        opt.disabled = ocupada;
+        opt.textContent = ocupada ? `Sala ${opt.value} (ocupada)` : `Sala ${opt.value}`;
+    });
+
+    // Se a sala já escolhida ficou ocupada por causa da troca de data/hora, limpa a seleção
+    if (valorAtual && ocupadas.has(valorAtual)) selectSala.value = '';
 }
 
 export function abrirModalBloqueio() {
@@ -436,6 +537,7 @@ export function atualizarAgenda() {
                             <p class="patient-name">${escapeHTML(agendamento.pacNome)}</p>
                         </div>
                         <span class="appointment-type">${escapeHTML(agendamento.tipo || 'Consulta')}</span>
+                        ${agendamento.sala ? `<span class="badge primary sala-badge"><i class="fa-solid fa-door-open"></i> Sala ${escapeHTML(agendamento.sala)}</span>` : ''}
                         
                         <select class="select-status-agenda input-premium" data-id="${agendamento.id}">
                             <option value="agendado" ${statusAtual === 'agendado' ? 'selected' : ''}>🗓️ Agendado</option>

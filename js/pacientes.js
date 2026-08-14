@@ -248,8 +248,8 @@ export function initPacientes() {
         await comEstadoDeCarregamento(btnSalvar, 'Assinando...', async () => {
             const textoProntuario = `**Anamnese:** ${document.getElementById('pep-anamnese').value}
     **Exame Físico:** ${document.getElementById('pep-exame-fisico').value}
-    **Diagnóstico:** ${document.getElementById('pep-diagnostico').value || 'N/A'}
-    **Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim(); 
+    **Suspeita Diagnóstica:** ${document.getElementById('pep-diagnostico').value || 'N/A'}
+    **Conduta e Prescrição:** ${document.getElementById('pep-prescricao').value}`.trim(); 
 
             const textoCriptografado = encriptar(textoProntuario);
 
@@ -513,7 +513,7 @@ export function initPacientes() {
 
     const btnImprimir = document.getElementById('btn-imprimir-receita');
     if (btnImprimir) {
-        btnImprimir.addEventListener('click', () => {
+        btnImprimir.addEventListener('click', async () => {
             const textoReceita = document.getElementById('texto-receita').value;
             const tipoDoc = document.getElementById('tipo-documento-impressao').value;
             
@@ -535,6 +535,21 @@ export function initPacientes() {
             document.getElementById('print-medico-registro').textContent = `${profissional.conselho}: ${profissional.registro}`;
 
             window.print();
+
+            // ENCAMINHAMENTO ESPECIALIZADO: avisa a recepção pra ela já
+            // oferecer o agendamento com o especialista antes do paciente
+            // sair da clínica - mesmo padrão usado pra exames solicitados.
+            if (tipoDoc === 'ENCAMINHAMENTO MÉDICO') {
+                const especialidade = document.getElementById('encaminhamento-especialidade').value;
+                await criarNotificacao({
+                    tipo: 'encaminhamento',
+                    titulo: `Encaminhamento: ${paciente.nome}`,
+                    mensagem: `${profissional.nome} encaminhou ${paciente.nome} para ${especialidade || 'especialista'}. Ofereça o agendamento antes que o paciente saia da clínica.`,
+                    pacienteId: paciente.id,
+                    pacienteNome: paciente.nome
+                });
+                await registrarAuditoria({ acao: 'Criação', modulo: 'Prontuário', descricao: `Encaminhamento gerado para ${paciente.nome} (${especialidade || 'especialista'})` });
+            }
         });
     }
 
@@ -614,6 +629,13 @@ async function uploadAnexo(file, subpasta) {
 }
 
 export function abrirProntuario(idPaciente) {
+    // Trava real (não só visual): apenas médicos acessam prontuário de jeito
+    // nenhum, mesmo que o botão apareça por algum outro caminho.
+    if (clinicaState.sessao.perfil !== 'Doutor(a)') {
+        showToast('Acesso ao prontuário é restrito exclusivamente a médicos.', 'error');
+        return;
+    }
+
     const paciente = clinicaState.pacientes.find(p => String(p.id) === String(idPaciente));
     
     if (paciente) {
@@ -807,9 +829,10 @@ export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
                 <td><span class="badge ${status.classe}" title="Baseado na última consulta agendada">${status.texto}</span></td>
                 <td>
                     <div class="row-actions">
+                        ${clinicaState.sessao.perfil === 'Doutor(a)' ? `
                         <button class="btn-action btn-abrir-prontuario" data-id="${p.id}" title="Acessar Ficha">
                             <i class="fa-regular fa-folder-open"></i>
-                        </button>
+                        </button>` : ''}
                         <button class="btn-action btn-edit btn-editar-paciente" data-id="${p.id}" title="Editar Dados">
                             <i class="fa-solid fa-pen"></i>
                         </button>

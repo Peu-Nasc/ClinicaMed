@@ -5,6 +5,10 @@ import { registrarAuditoria } from './auditoria.js';
 
 let lancamentoEmEdicaoId = null;
 let dreChartInstance = null;
+let chartReceitaDespesaInstance = null;
+let chartDespesaCategoriaInstance = null;
+let chartReceitaPagamentoInstance = null;
+let chartReceitaProfissionalInstance = null;
 let custoFixoEmEdicaoId = null;
 
 const CATEGORIAS_CUSTO_FIXO = {
@@ -32,12 +36,83 @@ export function initFinanceiro() {
         { id: 'fin-stat-saldo', label: 'Saldo do Filtro Atual', initial: 'R$ 0,00', variant: 'primary', valueClass: 'total', compact: true }
     ]);
 
+    // ==========================================
+    // FORMULÁRIO SIMPLIFICADO DA RECEPÇÃO
+    // Tela própria (não é o Livro Caixa completo) - só escolhe o tipo,
+    // preenche e registra. Sem lista, sem totais, sem filtro. Data
+    // (competência/caixa) e status são preenchidos automaticamente porque,
+    // pra recepção, o lançamento é sempre algo que já aconteceu hoje.
+    // ==========================================
+    const formFinRecepcao = document.getElementById('form-financeiro-recepcao');
+    if (formFinRecepcao) {
+        formFinRecepcao.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btnSalvar = e.target.querySelector('button[type="submit"]');
+            const valorInput = document.getElementById('fr-valor').value.replace(/\./g, '').replace(',', '.');
+
+            if (!valorInput || parseFloat(valorInput) <= 0) {
+                showToast('Informe um valor válido.', 'error');
+                return;
+            }
+
+            await comEstadoDeCarregamento(btnSalvar, 'Registrando...', async () => {
+                const hoje = new Date().toISOString().split('T')[0];
+                const dadosParaSalvar = {
+                    tipo: document.getElementById('fr-tipo').value,
+                    vinculo: document.getElementById('fr-vinculo').value,
+                    pagamento: document.getElementById('fr-pagamento').value,
+                    status: 'Recebido/Pago',
+                    competencia: hoje,
+                    caixa: hoje,
+                    valor: parseFloat(valorInput),
+                    profissionalId: null,
+                    profissionalNome: null,
+                    clinicaId: clinicaState.sessao.clinicaId
+                };
+
+                try {
+                    await addDoc(collection(db, "financeiro"), dadosParaSalvar);
+                    showToast('Lançamento registrado com sucesso!', 'success');
+                    await registrarAuditoria({ acao: 'Criação', modulo: 'Financeiro', descricao: `Novo lançamento (recepção): ${dadosParaSalvar.vinculo} - ${formatCurrency(dadosParaSalvar.valor)} (${dadosParaSalvar.tipo})` });
+
+                    e.target.reset();
+                    await carregarFinanceiro();
+                } catch (error) {
+                    console.error("Erro ao registrar lançamento (recepção): ", error);
+                    showToast('Falha de conexão ao registrar. Tente novamente.', 'error');
+                }
+            });
+        });
+    }
+
     const modalFinanceiro = document.getElementById('modal-financeiro');
     
     document.getElementById('btn-abrir-modal-financeiro').addEventListener('click', () => {
         const hoje = new Date().toISOString().split('T')[0];
         document.getElementById('fin-competencia').value = hoje;
         document.getElementById('fin-caixa').value = hoje;
+
+        const selProf = document.getElementById('fin-profissional');
+        if (selProf) {
+            selProf.innerHTML = '<option value="">Nenhum / Geral da clínica</option>' +
+                clinicaState.profissionais.map(p => `<option value="${p.id}">${escapeHTML(p.nome)}</option>`).join('');
+        }
+
+        const finTipo = document.getElementById('fin-tipo');
+        // Se for recepção, trava a opção apenas para RECEITA
+        if (clinicaState.sessao.perfil === 'recepcao') {
+            finTipo.innerHTML = '<option value="Receita">📥 Entrada (Receita)</option>';
+        } else {
+            // Administrador vê todas as opções de entrada e saída
+            finTipo.innerHTML = `
+                <option value="Receita">📥 Entrada (Receita)</option>
+                <option value="Custo Fixo">📤 Saída (Custo Fixo)</option>
+                <option value="Custo Variavel">📤 Saída (Custo Variável / Materiais)</option>
+                <option value="Repasse">📤 Saída (Repasse Médico)</option>
+            `;
+        }
+
         modalFinanceiro.classList.add('active');
     });
 
@@ -105,6 +180,8 @@ export function initFinanceiro() {
             }
 
             try {
+                const profSelecionado = clinicaState.profissionais.find(p => String(p.id) === String(document.getElementById('fin-profissional').value));
+
                 const dadosParaSalvar = {
                     tipo: document.getElementById('fin-tipo').value,
                     vinculo: document.getElementById('fin-vinculo').value,
@@ -113,6 +190,8 @@ export function initFinanceiro() {
                     competencia: document.getElementById('fin-competencia').value,
                     caixa: document.getElementById('fin-caixa').value,
                     valor: parseFloat(valorInput),
+                    profissionalId: profSelecionado ? profSelecionado.id : null,
+                    profissionalNome: profSelecionado ? profSelecionado.nome : null,
                     clinicaId: clinicaState.sessao.clinicaId
                 };
 
@@ -142,6 +221,11 @@ export function initFinanceiro() {
     const financeTableBody = document.getElementById('finance-table-body');
     if (financeTableBody) {
         financeTableBody.addEventListener('click', async (e) => {
+            // Trava real (não só visual): mesmo que o botão de editar/excluir
+            // acabe aparecendo por algum outro caminho, a recepção não pode
+            // mexer em lançamento já feito - só o Administrador.
+            if (clinicaState.sessao.perfil === 'recepcao') return;
+
             const btnEditar = e.target.closest('.btn-editar-fin');
             const btnExcluir = e.target.closest('.btn-excluir-fin');
 
@@ -176,6 +260,13 @@ export function initFinanceiro() {
                     document.getElementById('fin-caixa').value = lancamento.caixa;
                     
                     document.getElementById('fin-valor').value = lancamento.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+                    const selProf = document.getElementById('fin-profissional');
+                    if (selProf) {
+                        selProf.innerHTML = '<option value="">Nenhum / Geral da clínica</option>' +
+                            clinicaState.profissionais.map(p => `<option value="${p.id}">${escapeHTML(p.nome)}</option>`).join('');
+                        selProf.value = lancamento.profissionalId || '';
+                    }
                     
                     document.getElementById('modal-financeiro').classList.add('active');
                 }
@@ -566,6 +657,11 @@ export function calcularDRE() {
     // ==========================================
     // NOVO: ATUALIZAR O GRÁFICO (Estilo App de Banco)
     // ==========================================
+    // Calculado fora do "if (ctx)" porque os gráficos de análise logo
+    // abaixo (Receita x Despesa, categorias etc.) também usam essa lista,
+    // mesmo que o card do gráfico de saldo diário não esteja na tela.
+    const lancamentosFiltrados = clinicaState.financeiro.lancamentos.filter(l => dataDentroDoFiltro(l.competencia));
+
     const ctx = document.getElementById('dreChart');
     if (ctx) {
         if (dreChartInstance) {
@@ -574,7 +670,6 @@ export function calcularDRE() {
 
         // 1. Agrupar os valores líquidos por data
         const historicoPorData = {};
-        const lancamentosFiltrados = clinicaState.financeiro.lancamentos.filter(l => dataDentroDoFiltro(l.competencia));
         
         // Ordena por data (da mais antiga para a mais nova)
         lancamentosFiltrados.sort((a, b) => a.competencia.localeCompare(b.competencia));
@@ -658,6 +753,175 @@ export function calcularDRE() {
         });
     }
 
+    // ==========================================
+    // GRÁFICOS DE ANÁLISE (Receita x Despesa, Despesas por
+    // Categoria, Receita por Forma de Pagamento e por Profissional)
+    // Reaproveitam o mesmo "lancamentosFiltrados" já calculado
+    // acima pro gráfico de saldo diário, respeitando o filtro de
+    // período selecionado no topo do Dashboard.
+    // ==========================================
+    renderizarGraficoReceitaDespesa(lancamentosFiltrados);
+    renderizarGraficoDespesaCategoria(lancamentosFiltrados);
+    renderizarGraficoReceitaPagamento(lancamentosFiltrados);
+    renderizarGraficoReceitaProfissional(lancamentosFiltrados);
+}
+
+// Paleta consistente com o resto do sistema (--primary-color, --accent-color etc.)
+const CORES_GRAFICO = ['#0F4C75', '#17A673', '#3282B8', '#F4A100', '#BBE1FA', '#DC3545', '#6C757D', '#9C6ADE'];
+
+function renderizarGraficoReceitaDespesa(lancamentosFiltrados) {
+    const ctx = document.getElementById('chartReceitaDespesa');
+    if (!ctx) return;
+    if (chartReceitaDespesaInstance) chartReceitaDespesaInstance.destroy();
+
+    const porData = {};
+    lancamentosFiltrados
+        .filter(l => l.status === 'Recebido/Pago')
+        .sort((a, b) => a.competencia.localeCompare(b.competencia))
+        .forEach(l => {
+            const dataFormatada = l.competencia.split('-').reverse().join('/');
+            if (!porData[dataFormatada]) porData[dataFormatada] = { receita: 0, despesa: 0 };
+            if (l.tipo === 'Receita') porData[dataFormatada].receita += l.valor;
+            else porData[dataFormatada].despesa += l.valor;
+        });
+
+    const labels = Object.keys(porData);
+    const receitas = labels.map(d => porData[d].receita);
+    const despesas = labels.map(d => porData[d].despesa);
+
+    if (labels.length === 0) labels.push('Sem Movimentação');
+
+    chartReceitaDespesaInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Receita', data: receitas.length ? receitas : [0], backgroundColor: '#17A673', borderRadius: 4 },
+                { label: 'Despesa', data: despesas.length ? despesas : [0], backgroundColor: '#DC3545', borderRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${formatCurrency(c.parsed.y)}` } }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { color: '#E2E8F0' }, ticks: { callback: (v) => 'R$ ' + v.toLocaleString('pt-BR') } }
+            }
+        }
+    });
+}
+
+function renderizarGraficoDespesaCategoria(lancamentosFiltrados) {
+    const ctx = document.getElementById('chartDespesaCategoria');
+    if (!ctx) return;
+    if (chartDespesaCategoriaInstance) chartDespesaCategoriaInstance.destroy();
+
+    const ROTULOS_TIPO = { 'Custo Fixo': 'Custo Fixo', 'Custo Variavel': 'Custo Variável', 'Repasse': 'Repasse Médico' };
+    const porCategoria = {};
+
+    lancamentosFiltrados
+        .filter(l => l.status === 'Recebido/Pago' && l.tipo !== 'Receita')
+        .forEach(l => {
+            const rotulo = ROTULOS_TIPO[l.tipo] || l.tipo;
+            porCategoria[rotulo] = (porCategoria[rotulo] || 0) + l.valor;
+        });
+
+    const labels = Object.keys(porCategoria);
+    const valores = Object.values(porCategoria);
+
+    chartDespesaCategoriaInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels.length ? labels : ['Sem despesas no período'],
+            datasets: [{ data: valores.length ? valores : [1], backgroundColor: CORES_GRAFICO, borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { callbacks: { label: (c) => ` ${c.label}: ${formatCurrency(c.parsed)}` } }
+            }
+        }
+    });
+}
+
+function renderizarGraficoReceitaPagamento(lancamentosFiltrados) {
+    const ctx = document.getElementById('chartReceitaPagamento');
+    if (!ctx) return;
+    if (chartReceitaPagamentoInstance) chartReceitaPagamentoInstance.destroy();
+
+    const ROTULOS_PAGAMENTO = { 'Pix': 'Pix', 'Credito': 'Cartão de Crédito', 'Debito': 'Cartão de Débito', 'Boleto': 'Boleto/Transferência', 'Dinheiro': 'Dinheiro' };
+    const porForma = {};
+
+    lancamentosFiltrados
+        .filter(l => l.status === 'Recebido/Pago' && l.tipo === 'Receita')
+        .forEach(l => {
+            const rotulo = ROTULOS_PAGAMENTO[l.pagamento] || l.pagamento;
+            porForma[rotulo] = (porForma[rotulo] || 0) + l.valor;
+        });
+
+    const labels = Object.keys(porForma);
+    const valores = Object.values(porForma);
+
+    chartReceitaPagamentoInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels.length ? labels : ['Sem receitas no período'],
+            datasets: [{ data: valores.length ? valores : [1], backgroundColor: CORES_GRAFICO, borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { callbacks: { label: (c) => ` ${c.label}: ${formatCurrency(c.parsed)}` } }
+            }
+        }
+    });
+}
+
+function renderizarGraficoReceitaProfissional(lancamentosFiltrados) {
+    const ctx = document.getElementById('chartReceitaProfissional');
+    if (!ctx) return;
+    if (chartReceitaProfissionalInstance) chartReceitaProfissionalInstance.destroy();
+
+    const porProfissional = {};
+    lancamentosFiltrados
+        .filter(l => l.status === 'Recebido/Pago' && l.tipo === 'Receita' && l.profissionalNome)
+        .forEach(l => {
+            porProfissional[l.profissionalNome] = (porProfissional[l.profissionalNome] || 0) + l.valor;
+        });
+
+    // Maiores receitas primeiro, fica mais fácil de ler o ranking
+    const entradas = Object.entries(porProfissional).sort((a, b) => b[1] - a[1]);
+    const labels = entradas.map(e => e[0]);
+    const valores = entradas.map(e => e[1]);
+
+    chartReceitaProfissionalInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.length ? labels : ['Nenhum lançamento vinculado a profissional'],
+            datasets: [{ label: 'Receita', data: valores.length ? valores : [0], backgroundColor: '#3282B8', borderRadius: 4 }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (c) => ` ${formatCurrency(c.parsed.x)}` } }
+            },
+            scales: {
+                x: { grid: { color: '#E2E8F0' }, ticks: { callback: (v) => 'R$ ' + v.toLocaleString('pt-BR') } },
+                y: { grid: { display: false } }
+            }
+        }
+    });
 }
 
 // Filtra os lançamentos pela barra de pesquisa e pelo dropdown de meses
@@ -686,6 +950,11 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
     let totalDespesas = 0;
 
     const filtrados = filtrarLancamentos(filtroTexto, filtroMes);
+
+    // TRAVA DE SEGURANÇA: Recepção só enxerga as Entradas no Livro Caixa
+    if (clinicaState.sessao.perfil === 'recepcao') {
+        filtrados = filtrados.filter(l => l.tipo === 'Receita');
+    }
 
     // Renderiza a Tabela Agrupada
     document.getElementById('finance-table-body').innerHTML = filtrados.slice().reverse().map(l => {
@@ -719,6 +988,7 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
                 ${isEntrada ? '+' : '-'} ${formatCurrency(l.valor)}
             </td>
             <td>
+                ${clinicaState.sessao.perfil === 'recepcao' ? '<span style="color: var(--text-light); font-size: 0.75rem;">—</span>' : `
                 <div class="row-actions">
                     <button class="btn-action btn-edit btn-editar-fin" data-id="${l.id}" title="Editar">
                         <i class="fa-solid fa-pen"></i>
@@ -726,7 +996,7 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
                     <button class="btn-action btn-delete btn-excluir-fin" data-id="${l.id}" title="Excluir">
                         <i class="fa-solid fa-trash"></i>
                     </button>
-                </div>
+                </div>`}
             </td>
         </tr>`;
     }).join('');
@@ -748,18 +1018,24 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
 // ========================================================
 // EXPORTAÇÃO DO RELATÓRIO FINANCEIRO EM EXCEL (respeita o filtro atual da tela)
 // Gera um arquivo .xlsx (via ExcelJS) com duas abas:
-//   - "Dados": os lançamentos brutos filtrados (só os liquidados)
-//   - "Resumo": receita e despesa agrupadas por forma de pagamento,
-//     com fórmulas SUMIFS que leem direto da aba "Dados" (não são
-//     valores fixos - se você editar a planilha, os totais recalculam),
-//     total geral, lucro líquido e um gráfico de pizza da receita.
+//   - "Dados": os lançamentos brutos filtrados (só os liquidados), já
+//     formatada como tabela (cabeçalho fixo, filtro automático, zebra
+//     e cor por tipo de lançamento)
+//   - "Resumo": indicadores gerais, receita/despesa por forma de
+//     pagamento, despesas por categoria, receita por profissional e
+//     evolução mensal - a maioria com fórmulas SUMIFS que leem direto
+//     da aba "Dados" (não são valores fixos - se você editar a
+//     planilha, os totais recalculam) - além de 4 gráficos de análise
+//     embutidos como imagem.
 //
 // Observação técnica: bibliotecas JS gratuitas para gerar .xlsx no
 // navegador (ExcelJS/SheetJS) não conseguem criar um gráfico nativo
 // editável do Excel - isso só é possível com Excel de verdade ou libs
-// pagas. Por isso o gráfico de pizza aqui é inserido como IMAGEM
-// (renderizada com Chart.js), mas os números da planilha continuam
-// sendo fórmulas de verdade, editáveis e recalculáveis.
+// pagas. Por isso os gráficos aqui são inseridos como IMAGEM
+// (renderizados com Chart.js), mas os números da planilha continuam
+// sendo fórmulas de verdade, editáveis e recalculáveis (exceto Receita
+// por Profissional e Evolução Mensal, que são listas dinâmicas de
+// tamanho variável e por isso entram como valores já calculados).
 // ========================================================
 
 const CATEGORIAS_PAGAMENTO = [
@@ -770,32 +1046,44 @@ const CATEGORIAS_PAGAMENTO = [
     { chave: 'Dinheiro', label: 'Dinheiro Físico' }
 ];
 
-// Renderiza um gráfico de pizza fora da tela (canvas temporário) e devolve
-// a imagem em base64, pronta para ser embutida na planilha.
-function renderizarGraficoPizzaBase64(labels, valores) {
+const CATEGORIAS_DESPESA_TIPO = [
+    { chave: 'Custo Fixo', label: 'Custo Fixo' },
+    { chave: 'Custo Variavel', label: 'Custo Variável' },
+    { chave: 'Repasse', label: 'Repasse Médico' }
+];
+
+const CORES_GRAFICO_EXPORT = ['#0F4C75', '#3282B8', '#27AE60', '#F39C12', '#8E44AD', '#E74C3C', '#6C757D', '#BBE1FA'];
+
+// Renderiza um gráfico (pizza, rosca, barra vertical ou horizontal) fora da
+// tela (canvas temporário) e devolve a imagem em base64, pronta para ser
+// embutida na planilha. Generalizada a partir da antiga
+// renderizarGraficoPizzaBase64 para reaproveitar em todos os gráficos
+// analíticos da exportação (antes só existia o de pizza da receita).
+function renderizarGraficoExportBase64({ type, labels, datasets, titulo, indexAxis, largura = 480, altura = 320 }) {
     return new Promise((resolve) => {
         const canvas = document.createElement('canvas');
-        canvas.width = 480;
-        canvas.height = 320;
+        canvas.width = largura;
+        canvas.height = altura;
         canvas.style.position = 'absolute';
         canvas.style.left = '-9999px';
         document.body.appendChild(canvas);
 
-        const cores = ['#0F4C75', '#3282B8', '#27AE60', '#F39C12', '#8E44AD', '#E74C3C'];
-
         const chart = new Chart(canvas, {
-            type: 'pie',
-            data: {
-                labels,
-                datasets: [{ data: valores, backgroundColor: cores.slice(0, labels.length) }]
-            },
+            type,
+            data: { labels, datasets },
             options: {
                 responsive: false,
                 animation: false,
+                indexAxis: indexAxis || 'x',
                 plugins: {
-                    title: { display: true, text: 'Receitas por Forma de Pagamento', font: { size: 14 } },
+                    title: { display: true, text: titulo, font: { size: 14 } },
                     legend: { position: 'bottom', labels: { font: { size: 10 } } }
-                }
+                },
+                scales: type === 'bar'
+                    ? (indexAxis === 'y'
+                        ? { x: { ticks: { callback: (v) => 'R$ ' + Number(v).toLocaleString('pt-BR') } } }
+                        : { y: { ticks: { callback: (v) => 'R$ ' + Number(v).toLocaleString('pt-BR') } } })
+                    : undefined
             }
         });
 
@@ -811,6 +1099,13 @@ function renderizarGraficoPizzaBase64(labels, valores) {
 }
 
 export async function exportarFinanceiroExcel() {
+    // Relatório completo (com gráficos e agregações) é restrito ao
+    // Administrador - a recepção só lança, não analisa.
+    if (clinicaState.sessao.perfil === 'recepcao') {
+        showToast('Exportação de relatórios é restrita ao Administrador.', 'error');
+        return;
+    }
+
     const searchFin = document.getElementById('search-financeiro');
     const mesFin = document.getElementById('filtro-mes-financeiro');
     const filtroTexto = searchFin ? searchFin.value.toLowerCase() : '';
@@ -832,19 +1127,87 @@ export async function exportarFinanceiroExcel() {
 
     await comEstadoDeCarregamento(btnExportar, 'Gerando Excel...', async () => {
         try {
-            // Agregação em JS usada só para desenhar o gráfico - os números que
-            // aparecem na planilha em si vêm das fórmulas SUMIFS, não destes valores
+            // ===== Agregações em JS usadas para desenhar os gráficos e as
+            // seções dinâmicas do Resumo (Receita por Profissional e
+            // Evolução Mensal). As demais seções da planilha usam fórmulas
+            // SUMIFS de verdade, então não dependem destes valores. =====
             const receitaPorPagamento = {};
             CATEGORIAS_PAGAMENTO.forEach(c => { receitaPorPagamento[c.chave] = 0; });
+
+            const despesaPorCategoria = {};
+            CATEGORIAS_DESPESA_TIPO.forEach(c => { despesaPorCategoria[c.chave] = 0; });
+
+            const porData = {};             // Receita x Despesa por competência (gráfico 3)
+            const receitaPorProfissional = {};
+            const porMes = {};              // Evolução mensal (Receita/Despesa)
+
             lancamentos.forEach(l => {
                 if (l.tipo === 'Receita' && receitaPorPagamento[l.pagamento] !== undefined) {
                     receitaPorPagamento[l.pagamento] += l.valor;
                 }
+                if (l.tipo !== 'Receita' && despesaPorCategoria[l.tipo] !== undefined) {
+                    despesaPorCategoria[l.tipo] += l.valor;
+                }
+
+                const dataFormatada = l.competencia.split('-').reverse().join('/');
+                if (!porData[dataFormatada]) porData[dataFormatada] = { receita: 0, despesa: 0 };
+                if (l.tipo === 'Receita') porData[dataFormatada].receita += l.valor;
+                else porData[dataFormatada].despesa += l.valor;
+
+                if (l.tipo === 'Receita' && l.profissionalNome) {
+                    receitaPorProfissional[l.profissionalNome] = (receitaPorProfissional[l.profissionalNome] || 0) + l.valor;
+                }
+
+                const mesRef = l.competencia.substring(0, 7);
+                if (!porMes[mesRef]) porMes[mesRef] = { receita: 0, despesa: 0 };
+                if (l.tipo === 'Receita') porMes[mesRef].receita += l.valor;
+                else porMes[mesRef].despesa += l.valor;
             });
 
-            const categoriasComReceita = CATEGORIAS_PAGAMENTO.filter(c => receitaPorPagamento[c.chave] > 0);
-            const imagemGraficoBase64 = categoriasComReceita.length > 0
-                ? await renderizarGraficoPizzaBase64(categoriasComReceita.map(c => c.label), categoriasComReceita.map(c => receitaPorPagamento[c.chave]))
+            // --- Gráfico 1: Receita por Forma de Pagamento (rosca) ---
+            const catComReceita = CATEGORIAS_PAGAMENTO.filter(c => receitaPorPagamento[c.chave] > 0);
+            const imgReceitaPagamento = catComReceita.length > 0
+                ? await renderizarGraficoExportBase64({
+                    type: 'doughnut',
+                    labels: catComReceita.map(c => c.label),
+                    datasets: [{ data: catComReceita.map(c => receitaPorPagamento[c.chave]), backgroundColor: CORES_GRAFICO_EXPORT }],
+                    titulo: 'Receitas por Forma de Pagamento'
+                })
+                : null;
+
+            // --- Gráfico 2: Despesas por Categoria (rosca) ---
+            const catComDespesa = CATEGORIAS_DESPESA_TIPO.filter(c => despesaPorCategoria[c.chave] > 0);
+            const imgDespesaCategoria = catComDespesa.length > 0
+                ? await renderizarGraficoExportBase64({
+                    type: 'doughnut',
+                    labels: catComDespesa.map(c => c.label),
+                    datasets: [{ data: catComDespesa.map(c => despesaPorCategoria[c.chave]), backgroundColor: CORES_GRAFICO_EXPORT }],
+                    titulo: 'Despesas por Categoria'
+                })
+                : null;
+
+            // --- Gráfico 3: Receita x Despesa por Competência (barras agrupadas) ---
+            const labelsData = Object.keys(porData);
+            const imgReceitaDespesa = await renderizarGraficoExportBase64({
+                type: 'bar',
+                labels: labelsData,
+                datasets: [
+                    { label: 'Receita', data: labelsData.map(d => porData[d].receita), backgroundColor: '#17A673' },
+                    { label: 'Despesa', data: labelsData.map(d => porData[d].despesa), backgroundColor: '#DC3545' }
+                ],
+                titulo: 'Receita x Despesa por Competência'
+            });
+
+            // --- Gráfico 4: Receita por Profissional (barra horizontal, ranking) ---
+            const rankingProfissional = Object.entries(receitaPorProfissional).sort((a, b) => b[1] - a[1]);
+            const imgReceitaProfissional = rankingProfissional.length > 0
+                ? await renderizarGraficoExportBase64({
+                    type: 'bar',
+                    labels: rankingProfissional.map(e => e[0]),
+                    datasets: [{ label: 'Receita', data: rankingProfissional.map(e => e[1]), backgroundColor: '#3282B8' }],
+                    titulo: 'Receita por Profissional',
+                    indexAxis: 'y'
+                })
                 : null;
 
             const workbook = new ExcelJS.Workbook();
@@ -852,7 +1215,9 @@ export async function exportarFinanceiroExcel() {
             workbook.created = new Date();
 
             // ================= ABA "Dados" (base para as fórmulas do Resumo) =================
-            const abaDados = workbook.addWorksheet('Dados');
+            const abaDados = workbook.addWorksheet('Dados', {
+                views: [{ state: 'frozen', ySplit: 1 }] // cabeçalho fixo ao rolar a tabela
+            });
             abaDados.columns = [
                 { header: 'Competência', key: 'competencia', width: 14 },
                 { header: 'Data de Caixa', key: 'caixa', width: 14 },
@@ -860,30 +1225,48 @@ export async function exportarFinanceiroExcel() {
                 { header: 'Vínculo', key: 'vinculo', width: 28 },
                 { header: 'Forma de Pagamento', key: 'pagamento', width: 20 },
                 { header: 'Status', key: 'status', width: 16 },
-                { header: 'Valor', key: 'valor', width: 14 }
+                { header: 'Valor', key: 'valor', width: 14 },
+                { header: 'Profissional', key: 'profissional', width: 24 }
             ];
             abaDados.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
             abaDados.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F4C75' } };
+            abaDados.getRow(1).alignment = { vertical: 'middle' };
 
-            lancamentos.forEach(l => {
-                abaDados.addRow({
+            const bordaFina = { style: 'thin', color: { argb: 'FFE2E8F0' } };
+
+            lancamentos.forEach((l, indice) => {
+                const linhaAdicionada = abaDados.addRow({
                     competencia: l.competencia.split('-').reverse().join('/'),
                     caixa: l.caixa.split('-').reverse().join('/'),
                     tipo: l.tipo,
                     vinculo: l.vinculo,
                     pagamento: l.pagamento,
                     status: l.status,
-                    valor: l.valor
+                    valor: l.valor,
+                    profissional: l.profissionalNome || ''
                 });
+
+                // Zebra striping (linhas pares levemente sombreadas, mais fácil de ler)
+                if (indice % 2 === 1) {
+                    linhaAdicionada.eachCell({ includeEmpty: true }, (cel) => {
+                        cel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } };
+                    });
+                }
+                // Destaque de cor no valor: verde para receita, vermelho para despesa
+                linhaAdicionada.getCell('valor').font = { color: { argb: l.tipo === 'Receita' ? 'FF17A673' : 'FFDC3545' }, bold: true };
+                linhaAdicionada.eachCell({ includeEmpty: true }, (cel) => { cel.border = { bottom: bordaFina }; });
             });
             abaDados.getColumn('valor').numFmt = '"R$" #,##0.00';
             const ultimaLinhaDados = abaDados.rowCount;
+            abaDados.autoFilter = { from: 'A1', to: `H${ultimaLinhaDados}` };
 
             // ================= ABA "Resumo" =================
             const abaResumo = workbook.addWorksheet('Resumo', { views: [{ showGridLines: false }] });
-            abaResumo.getColumn(1).width = 30;
-            abaResumo.getColumn(2).width = 18;
-            abaResumo.getColumn(4).width = 4;
+            abaResumo.getColumn(1).width = 26;
+            abaResumo.getColumn(2).width = 16;
+            abaResumo.getColumn(3).width = 16;
+            abaResumo.getColumn(4).width = 16;
+            abaResumo.getColumn(5).width = 4;
 
             abaResumo.mergeCells('A1:B1');
             abaResumo.getCell('A1').value = 'Relatório Financeiro — GestãoPRO';
@@ -903,10 +1286,13 @@ export async function exportarFinanceiroExcel() {
                 linha++;
             };
 
-            const escreverLinhaCategoria = (label, formula) => {
+            // ehFormula=false permite escrever um valor já calculado em vez de
+            // fórmula - usado nas seções cuja lista de linhas é dinâmica
+            // (Receita por Profissional) e por isso não dá pra fixar em SUMIFS
+            const escreverLinhaCategoria = (label, formulaOuValor, ehFormula = true) => {
                 abaResumo.getCell(`A${linha}`).value = label;
                 const celValor = abaResumo.getCell(`B${linha}`);
-                celValor.value = { formula };
+                celValor.value = ehFormula ? { formula: formulaOuValor } : formulaOuValor;
                 celValor.numFmt = '"R$" #,##0.00';
                 linha++;
             };
@@ -923,6 +1309,19 @@ export async function exportarFinanceiroExcel() {
                 celValor.border = { top: { style: 'thin' } };
                 linha++;
             };
+
+            // --- Indicadores Gerais ---
+            escreverTituloSecao('INDICADORES GERAIS');
+            const totalReceitasCalc = lancamentos.filter(l => l.tipo === 'Receita').reduce((s, l) => s + l.valor, 0);
+            const qtdReceitas = lancamentos.filter(l => l.tipo === 'Receita').length;
+            const ticketMedio = qtdReceitas > 0 ? totalReceitasCalc / qtdReceitas : 0;
+
+            abaResumo.getCell(`A${linha}`).value = 'Total de Lançamentos';
+            abaResumo.getCell(`B${linha}`).value = lancamentos.length;
+            linha++;
+            escreverLinhaCategoria('Ticket Médio (Receita)', ticketMedio, false);
+
+            linha++; // linha em branco
 
             // --- Receita dividida por forma de pagamento ---
             escreverTituloSecao('RECEITAS POR FORMA DE PAGAMENTO');
@@ -948,6 +1347,17 @@ export async function exportarFinanceiroExcel() {
 
             linha++; // linha em branco
 
+            // --- Despesas por Categoria (Custo Fixo / Custo Variável / Repasse) ---
+            escreverTituloSecao('DESPESAS POR CATEGORIA');
+            const inicioDespCat = linha;
+            CATEGORIAS_DESPESA_TIPO.forEach(c => {
+                escreverLinhaCategoria(c.label, `SUMIFS(Dados!$G$2:$G$${ultimaLinhaDados},Dados!$C$2:$C$${ultimaLinhaDados},"${c.chave}")`);
+            });
+            const fimDespCat = linha - 1;
+            escreverLinhaTotal('TOTAL DESPESAS (CATEGORIA)', `SUM(B${inicioDespCat}:B${fimDespCat})`);
+
+            linha++; // linha em branco
+
             // --- Lucro líquido (Total Receitas - Total Despesas) ---
             const celLucroLabel = abaResumo.getCell(`A${linha}`);
             celLucroLabel.value = 'LUCRO LÍQUIDO';
@@ -960,11 +1370,75 @@ export async function exportarFinanceiroExcel() {
             celLucroValor.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
             celLucroValor.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF27AE60' } };
 
-            // --- Gráfico de pizza (imagem - ver observação técnica no topo da função) ---
-            if (imagemGraficoBase64) {
-                const imageId = workbook.addImage({ base64: imagemGraficoBase64, extension: 'png' });
-                abaResumo.addImage(imageId, { tl: { col: 4, row: 3 }, ext: { width: 480, height: 320 } });
+            linha += 2; // respiro antes das seções dinâmicas
+
+            // --- Receita por Profissional (lista dinâmica de nomes - valores
+            // já calculados, não é possível fixar uma fórmula SUMIFS porque a
+            // quantidade e os nomes dos profissionais variam por clínica) ---
+            if (rankingProfissional.length > 0) {
+                escreverTituloSecao('RECEITA POR PROFISSIONAL');
+                rankingProfissional.forEach(([nome, valor]) => {
+                    escreverLinhaCategoria(nome, valor, false);
+                });
+                linha++; // linha em branco
             }
+
+            // --- Evolução Mensal (Receita, Despesa, Saldo) - tabela de 4
+            // colunas, também com valores já calculados pelo mesmo motivo ---
+            const mesesOrdenados = Object.keys(porMes).sort();
+            if (mesesOrdenados.length > 0) {
+                abaResumo.mergeCells(`A${linha}:D${linha}`);
+                const celTituloMensal = abaResumo.getCell(`A${linha}`);
+                celTituloMensal.value = 'EVOLUÇÃO MENSAL';
+                celTituloMensal.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                celTituloMensal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F4C75' } };
+                linha++;
+
+                ['Mês', 'Receita', 'Despesa', 'Saldo'].forEach((titulo, i) => {
+                    const cel = abaResumo.getCell(linha, i + 1);
+                    cel.value = titulo;
+                    cel.font = { bold: true };
+                    cel.border = { bottom: { style: 'thin' } };
+                });
+                linha++;
+
+                mesesOrdenados.forEach(mes => {
+                    const [ano, mesNum] = mes.split('-');
+                    const receitaMes = porMes[mes].receita;
+                    const despesaMes = porMes[mes].despesa;
+
+                    abaResumo.getCell(`A${linha}`).value = `${mesNum}/${ano}`;
+
+                    const cReceita = abaResumo.getCell(`B${linha}`);
+                    cReceita.value = receitaMes;
+                    cReceita.numFmt = '"R$" #,##0.00';
+
+                    const cDespesa = abaResumo.getCell(`C${linha}`);
+                    cDespesa.value = despesaMes;
+                    cDespesa.numFmt = '"R$" #,##0.00';
+
+                    const saldoMes = receitaMes - despesaMes;
+                    const cSaldo = abaResumo.getCell(`D${linha}`);
+                    cSaldo.value = saldoMes;
+                    cSaldo.numFmt = '"R$" #,##0.00';
+                    cSaldo.font = { bold: true, color: { argb: saldoMes < 0 ? 'FFDC3545' : 'FF17A673' } };
+
+                    linha++;
+                });
+            }
+
+            // --- Gráficos de análise (imagem - ver observação técnica no topo
+            // da função), dispostos em grade 2x2 à direita das tabelas ---
+            [
+                { img: imgReceitaPagamento, col: 5, row: 3 },
+                { img: imgDespesaCategoria, col: 5, row: 24 },
+                { img: imgReceitaDespesa, col: 13, row: 3 },
+                { img: imgReceitaProfissional, col: 13, row: 24 }
+            ].forEach(({ img, col, row }) => {
+                if (!img) return;
+                const imageId = workbook.addImage({ base64: img, extension: 'png' });
+                abaResumo.addImage(imageId, { tl: { col, row }, ext: { width: 440, height: 290 } });
+            });
 
             // ================= GERA E BAIXA O ARQUIVO =================
             const buffer = await workbook.xlsx.writeBuffer();

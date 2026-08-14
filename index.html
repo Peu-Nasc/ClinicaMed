@@ -71,6 +71,7 @@
                     <span id="badge-notificacoes" class="menu-badge" style="display:none;">0</span>
                 </button>
                 <button class="menu-btn" id="btn-menu-auditoria" data-target="auditoria"><i class="fa-solid fa-file-signature"></i> Auditoria</button>
+                <button class="menu-btn" data-target="ajuda"><i class="fa-solid fa-circle-question"></i> Ajuda</button>
             </nav>
             <div class="user-profile">
                 <!-- Colocamos IDs para o JavaScript conseguir injetar os dados -->
@@ -121,6 +122,26 @@
                         <h4 style="color: var(--text-main); font-size: 1.05rem; margin-bottom: 15px;"><i class="fa-solid fa-chart-area icon-primary"></i> Evolução de Saldo Diário</h4>
                         <div style="position: relative; height: 300px; width: 100%;">
                             <canvas id="dreChart"></canvas>
+                        </div>
+                    </div>
+
+                    <h3 class="form-section-title section-subtitle spaced">Análise Gráfica</h3>
+                    <div class="charts-grid mb-20">
+                        <div class="card" style="padding: 20px;">
+                            <h4 style="color: var(--text-main); font-size: 1rem; margin-bottom: 15px;"><i class="fa-solid fa-chart-column icon-primary"></i> Receita x Despesa</h4>
+                            <div style="position: relative; height: 260px;"><canvas id="chartReceitaDespesa"></canvas></div>
+                        </div>
+                        <div class="card" style="padding: 20px;">
+                            <h4 style="color: var(--text-main); font-size: 1rem; margin-bottom: 15px;"><i class="fa-solid fa-chart-pie icon-warning"></i> Despesas por Categoria</h4>
+                            <div style="position: relative; height: 260px;"><canvas id="chartDespesaCategoria"></canvas></div>
+                        </div>
+                        <div class="card" style="padding: 20px;">
+                            <h4 style="color: var(--text-main); font-size: 1rem; margin-bottom: 15px;"><i class="fa-solid fa-credit-card icon-success"></i> Receita por Forma de Pagamento</h4>
+                            <div style="position: relative; height: 260px;"><canvas id="chartReceitaPagamento"></canvas></div>
+                        </div>
+                        <div class="card" style="padding: 20px;">
+                            <h4 style="color: var(--text-main); font-size: 1rem; margin-bottom: 15px;"><i class="fa-solid fa-user-doctor icon-primary"></i> Receita por Profissional</h4>
+                            <div style="position: relative; height: 260px;"><canvas id="chartReceitaProfissional"></canvas></div>
                         </div>
                     </div>
 
@@ -426,9 +447,9 @@
                                     </div>
                                 </div>
                             </div>
-                          
 
-                        </div>
+                            
+                          
 
                     <!-- NÍVEL 2B: Área de Equipe/Profissionais (Oculta por padrão) -->
                     <div id="area-profissionais" style="display: none;">
@@ -551,7 +572,45 @@
                         <h2>Central Financeira</h2>
                     </div>
 
-                    <!-- NÍVEL 1: Menu Principal com 2 Botões Grandes -->
+                    <!-- TELA SIMPLIFICADA PARA A RECEPÇÃO: só lançar, sem ver
+                         listas, totais ou relatórios. Fica oculta por padrão e
+                         só aparece pra quem está logado como recepção (ver
+                         aplicarPermissoesDeTela em login.js), que também
+                         esconde o hub-financeiro abaixo pra ela. -->
+                    <div id="financeiro-recepcao-form" style="display: none;">
+                        <div class="card" style="max-width: 480px; margin: 20px auto 0;">
+                            <h3 style="margin-bottom: 4px;"><i class="fa-solid fa-cash-register icon-primary"></i> Lançar Movimentação</h3>
+                            <p class="top-subtitle mb-15">Escolha o tipo e registre a receita ou despesa. Simples assim.</p>
+                            <form id="form-financeiro-recepcao" class="form-grid">
+                                <div class="form-group full-width">
+                                    <label>Tipo *</label>
+                                    <select id="fr-tipo" class="input-premium" required>
+                                        <option value="Receita">📥 Entrada (Receita)</option>
+                                        <option value="Custo Fixo">📤 Saída (Custo Fixo)</option>
+                                        <option value="Custo Variavel">📤 Saída (Custo Variável / Materiais)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Descrição *</label>
+                                    <input type="text" id="fr-vinculo" class="input-premium" placeholder="Ex: Consulta João Silva, Compra de material..." required>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Forma de Pagamento *</label>
+                                    <select id="fr-pagamento" class="input-premium" required>
+                                        <option value="Pix">Pix</option>
+                                        <option value="Credito">Cartão de Crédito</option>
+                                        <option value="Debito">Cartão de Débito</option>
+                                        <option value="Boleto">Boleto / Transferência</option>
+                                        <option value="Dinheiro">Dinheiro Físico</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width"><label>Valor (R$) *</label><input type="text" id="fr-valor" class="input-premium" required placeholder="0,00"></div>
+                                <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-check"></i> Registrar Lançamento</button></div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- NÍVEL 1: Menu Principal com 2 Botões Grandes (Administrador) -->
                     <div id="hub-financeiro" class="card-grid mt-30">
                         <div class="card card-action" id="btn-hub-livro-caixa">
                             <i class="fa-solid fa-cash-register hub-icon"></i>
@@ -719,6 +778,21 @@
                         </table>
                     </div>
                 </section>
+
+                <section id="ajuda" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h2>Central de Ajuda</h2>
+                            <p class="top-subtitle">Tire dúvidas rápidas sobre cada área do sistema, sem precisar chamar o suporte</p>
+                        </div>
+                    </div>
+
+                    <div class="search-bar">
+                        <input id="search-ajuda" type="text" class="input-form" placeholder="Pesquisar por uma dúvida (ex: pagamento, estoque baixo, senha)...">
+                    </div>
+
+                    <div id="ajuda-lista" class="ajuda-lista"></div>
+                </section>
             </div>
         </main>
     </div>
@@ -845,6 +919,12 @@
                     <div class="form-group"><label>Data da Competência (Fato) *</label><input type="date" id="fin-competencia" class="input-premium" required></div>
                     <div class="form-group"><label>Data do Caixa (Recebimento) *</label><input type="date" id="fin-caixa" class="input-premium" required></div>
                     <div class="form-group full-width"><label>Valor (R$) *</label><input type="text" id="fin-valor" class="input-premium" required placeholder="0,00"></div>
+                    <div class="form-group full-width">
+                        <label>Profissional Vinculado (opcional)</label>
+                        <select id="fin-profissional" class="input-premium">
+                            <option value="">Nenhum / Geral da clínica</option>
+                        </select>
+                    </div>
                     <div class="form-actions full-width"><button type="submit" class="btn-primary">Lançar no Caixa</button></div>
                 </form>
             </div>
@@ -891,6 +971,20 @@
                 <form id="form-agendamento" class="form-grid">
                     <div class="form-group full-width"><label>Paciente *</label><select id="agenda-paciente" class="input-premium" required></select></div>
                     <div class="form-group full-width"><label>Profissional *</label><select id="agenda-profissional" class="input-premium" required></select></div>
+                    
+                    <!-- CONTROLE DE SALAS: a clínica tem 3 salas físicas e vários
+                         profissionais - o sistema bloqueia se a sala já estiver
+                         ocupada por outro profissional no mesmo horário. -->
+                    <div class="form-group full-width">
+                        <label>Sala *</label>
+                        <select id="agenda-sala" class="input-premium" required>
+                            <option value="" disabled selected>Selecione a sala...</option>
+                            <option value="1">Sala 1</option>
+                            <option value="2">Sala 2</option>
+                            <option value="3">Sala 3</option>
+                        </select>
+                        <small style="color: var(--text-light);">Salas já ocupadas no horário escolhido ficam desabilitadas aqui.</small>
+                    </div>
                     
                     <!-- NOVO CAMPO: Tipo de Atendimento -->
                     <div class="form-group full-width">
