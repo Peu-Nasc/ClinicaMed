@@ -7,6 +7,7 @@ import { carregarFinanceiro, carregarCustosFixos } from './financeiro.js';
 import { escutarNotificacoes } from './notificacoes.js';
 import { carregarEstoque } from './estoque.js';
 import { carregarAuditoria, registrarAuditoria } from './auditoria.js';
+import { atualizarAjudaPorPerfil } from './ajuda.js';
 
 // ========================================================
 // RESTRIÇÃO DE ACESSO POR IP (por clínica)
@@ -300,4 +301,9 @@ function aplicarPermissoesDeTela() {
         // Só o Administrador tem acesso ao log de auditoria
         if(btnAudit) btnAudit.style.display = 'flex';
     }
+
+    // Re-renderiza a Central de Ajuda já filtrada para este perfil - no
+    // carregamento inicial da página (antes do login) ela tinha sido
+    // montada com todos os módulos, por ainda não saber quem ia entrar.
+    atualizarAjudaPorPerfil();
 }

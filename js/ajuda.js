@@ -1,3 +1,5 @@
+import { clinicaState } from './state.js';
+
 // ========================================================
 // AJUDA / TUTORIAL DO SISTEMA
 // Central de dúvidas rápidas por módulo, pra funcionário ou
@@ -5,12 +7,19 @@
 // mandar mensagem direto pro suporte. Cada pergunta é um
 // <details> nativo do HTML (abre/fecha sozinho) - o JS aqui só
 // cuida de renderizar o conteúdo e filtrar pela busca.
+//
+// VISIBILIDADE POR PERFIL: cada módulo só aparece pra quem
+// realmente enxerga aquela tela no menu lateral (mesma regra
+// de aplicarPermissoesDeTela em login.js). Assim a recepção e
+// o(a) Doutor(a) não veem explicação de telas que nem têm
+// acesso - só o que usam no dia a dia.
 // ========================================================
 
 const TOPICOS_AJUDA = [
     {
         modulo: 'Dashboard & DRE',
         icone: 'fa-solid fa-chart-line',
+        perfis: ['admin'],
         perguntas: [
             {
                 titulo: 'O que é o DRE que aparece no Dashboard?',
@@ -29,6 +38,7 @@ const TOPICOS_AJUDA = [
     {
         modulo: 'Agenda',
         icone: 'fa-regular fa-calendar-days',
+        perfis: ['admin', 'Doutor(a)', 'recepcao'],
         perguntas: [
             {
                 titulo: 'Como marco uma nova consulta?',
@@ -47,6 +57,7 @@ const TOPICOS_AJUDA = [
     {
         modulo: 'Pacientes & Prontuários',
         icone: 'fa-solid fa-users',
+        perfis: ['admin', 'Doutor(a)', 'recepcao'],
         perguntas: [
             {
                 titulo: 'Onde vejo o histórico de um paciente?',
@@ -61,6 +72,7 @@ const TOPICOS_AJUDA = [
     {
         modulo: 'Estoque (Anvisa)',
         icone: 'fa-solid fa-boxes-stacked',
+        perfis: ['admin', 'recepcao'],
         perguntas: [
             {
                 titulo: 'Como registro a entrada de um novo item?',
@@ -79,6 +91,7 @@ const TOPICOS_AJUDA = [
     {
         modulo: 'Financeiro',
         icone: 'fa-solid fa-cash-register',
+        perfis: ['admin', 'recepcao'],
         perguntas: [
             {
                 titulo: 'Como lanço um pagamento recebido?',
@@ -97,6 +110,7 @@ const TOPICOS_AJUDA = [
     {
         modulo: 'Notificações',
         icone: 'fa-solid fa-bell',
+        perfis: ['admin', 'Doutor(a)', 'recepcao'],
         perguntas: [
             {
                 titulo: 'De onde vêm as notificações?',
@@ -111,6 +125,7 @@ const TOPICOS_AJUDA = [
     {
         modulo: 'Auditoria',
         icone: 'fa-solid fa-file-signature',
+        perfis: ['admin'],
         perguntas: [
             {
                 titulo: 'Para que serve a tela de Auditoria?',
@@ -125,6 +140,7 @@ const TOPICOS_AJUDA = [
     {
         modulo: 'Acesso e Segurança',
         icone: 'fa-solid fa-shield-halved',
+        perfis: ['admin', 'Doutor(a)', 'recepcao'],
         perguntas: [
             {
                 titulo: 'Esqueci minha senha, o que eu faço?',
@@ -138,22 +154,42 @@ const TOPICOS_AJUDA = [
     }
 ];
 
+// Retorna só os módulos que o perfil logado tem permissão de ver (mesmo
+// critério do menu lateral). Se por algum motivo a sessão ainda não tiver
+// perfil definido, não filtra nada - evita a tela ficar vazia antes do login.
+function topicosPermitidosParaPerfil() {
+    const perfil = clinicaState.sessao.perfil;
+    if (!perfil) return TOPICOS_AJUDA;
+    return TOPICOS_AJUDA.filter(modulo => modulo.perfis.includes(perfil));
+}
+
+// Chamada por login.js (dentro de aplicarPermissoesDeTela) assim que o
+// perfil da sessão é conhecido, pra re-renderizar a lista já filtrada -
+// no primeiro carregamento da página (antes do login) ainda não dá pra
+// saber quem está entrando.
+export function atualizarAjudaPorPerfil() {
+    const busca = document.getElementById('search-ajuda');
+    if (busca) busca.value = '';
+    renderizarTopicos(topicosPermitidosParaPerfil());
+}
+
 export function initAjuda() {
-    renderizarTopicos(TOPICOS_AJUDA);
+    renderizarTopicos(topicosPermitidosParaPerfil());
 
     const busca = document.getElementById('search-ajuda');
     if (busca) {
         busca.addEventListener('input', () => {
             const termo = busca.value.toLowerCase().trim();
+            const topicosDoPerfil = topicosPermitidosParaPerfil();
 
             if (!termo) {
-                renderizarTopicos(TOPICOS_AJUDA);
+                renderizarTopicos(topicosDoPerfil);
                 return;
             }
 
             // Mantém só as perguntas que batem com a busca, e some com o
             // módulo inteiro se nenhuma pergunta dele sobrar
-            const filtrados = TOPICOS_AJUDA
+            const filtrados = topicosDoPerfil
                 .map(modulo => ({
                     ...modulo,
                     perguntas: modulo.perguntas.filter(p =>
