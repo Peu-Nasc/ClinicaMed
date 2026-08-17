@@ -6,6 +6,8 @@ import { carregarAgendamentos, carregarBloqueios, verificarAlertasAgendamento } 
 import { carregarFinanceiro, carregarCustosFixos } from './financeiro.js';
 import { escutarNotificacoes } from './notificacoes.js';
 import { carregarEstoque } from './estoque.js';
+import { carregarProcedimentos } from './procedimentos.js';
+import { carregarPacotes } from './pacotes.js';
 import { carregarAuditoria, registrarAuditoria } from './auditoria.js';
 import { atualizarAjudaPorPerfil } from './ajuda.js';
 
@@ -111,6 +113,8 @@ export function initAuth() {
                 await carregarCustosFixos();
                 await carregarFinanceiro();
                 await carregarEstoque();
+                await carregarProcedimentos();
+                await carregarPacotes();
 
                 // Log de auditoria é restrito ao Administrador - evita leitura
                 // desnecessária no Firestore para quem nunca vai ver a tela.
@@ -287,9 +291,23 @@ function aplicarPermissoesDeTela() {
         
         // Agora a recepção VÊ o hub financeiro (Livro Caixa)
         if(hubFinanceiro) hubFinanceiro.style.display = 'flex';
+        // Mas ela só LANÇA, não CONSULTA: o bloco com dashboard, filtros e
+        // tabela do Livro Caixa fica oculto, e um aviso aparece no lugar.
+        const livroCaixaConsulta = document.getElementById('livro-caixa-consulta');
+        const livroCaixaAvisoRecepcao = document.getElementById('livro-caixa-aviso-recepcao');
+        if(livroCaixaConsulta) livroCaixaConsulta.style.display = 'none';
+        if(livroCaixaAvisoRecepcao) livroCaixaAvisoRecepcao.style.display = 'block';
         // Mas escondemos o botão de Custos Fixos (Saídas) dela
         const btnCustos = document.getElementById('btn-hub-custos-fixos');
         if(btnCustos) btnCustos.style.display = 'none';
+        // E o botão de editar a Tabela de Procedimentos - ela escolhe o
+        // procedimento na Agenda, mas quem define/edita valor é o admin
+        const btnProcedimentos = document.getElementById('btn-hub-procedimentos');
+        if(btnProcedimentos) btnProcedimentos.style.display = 'none';
+        // Idem pro cadastro de Pacotes - a recepção usa o atalho de pacote
+        // dentro do lançamento, mas não gerencia o catálogo (nome/valor)
+        const btnPacotes = document.getElementById('btn-hub-pacotes');
+        if(btnPacotes) btnPacotes.style.display = 'none';
         
         // Removemos o "Caixa Cego" antigo, pois agora ela usa o Livro Caixa oficial
         if(formFinanceiroRecepcao) formFinanceiroRecepcao.style.display = 'none';

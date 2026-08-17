@@ -1,7 +1,11 @@
 // Aqui colocamos tudo que é usado em vários lugares do sistema
 import { clinicaState } from './state.js';
 
-export const formatCurrency = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export const formatCurrency = (val) => {
+    const num = Number(val);
+    if (isNaN(num)) return 'R$ 0,00';
+    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 export function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
@@ -176,4 +180,14 @@ export function initMasks() {
     IMask(document.getElementById('fin-valor'), maskOptions.moeda);
     if (document.getElementById('fr-valor')) IMask(document.getElementById('fr-valor'), maskOptions.moeda);
     IMask(document.getElementById('custo-valor'), maskOptions.moeda);
+    IMask(document.getElementById('proc-valor'), maskOptions.moeda);
+    if (document.getElementById('pac-valor')) IMask(document.getElementById('pac-valor'), maskOptions.moeda);
+}
+
+// Aplica a máscara de moeda num input criado dinamicamente depois do
+// carregamento da página (ex: linha de exceção de preço por profissional
+// na Tabela de Procedimentos) - initMasks() só cobre o que já existe no
+// HTML no momento em que a página carrega.
+export function aplicarMascaraMoeda(input) {
+    IMask(input, { mask: Number, scale: 2, thousandsSeparator: '.', padFractionalZeros: true, normalizeZeros: true, radix: ',' });
 }

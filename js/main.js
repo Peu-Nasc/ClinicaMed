@@ -4,6 +4,8 @@ import { initMasks, initConfirmacao, initFooterInstitucional } from './Ferrament
 import { initPacientes, atualizarTabelaPacientes, carregarPacientes } from './pacientes.js';
 import { initFinanceiro, calcularDRE, atualizarTabelaFinanceiro, atualizarTabelaCustosFixos } from './financeiro.js';
 import { initEstoque, atualizarTabelaEstoque } from './estoque.js';
+import { initProcedimentos } from './procedimentos.js';
+import { initPacotes } from './pacotes.js';
 import { initAgenda, atualizarAgenda } from './agenda.js';
 import { initNotificacoes } from './notificacoes.js';
 import { initAuditoria } from './auditoria.js';
@@ -20,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initPacientes();
     initFinanceiro();
     initEstoque();
+    initProcedimentos();
+    initPacotes();
     initAgenda();
     initNotificacoes();
     initAuditoria();

@@ -104,6 +104,14 @@ const TOPICOS_AJUDA = [
             {
                 titulo: 'Como exporto o relatório financeiro?',
                 resposta: 'No Livro Caixa (visível para o Administrador), use a opção de exportação para gerar uma planilha Excel com receitas e despesas separadas por forma de pagamento, totais e lucro líquido.'
+            },
+            {
+                titulo: 'O que é a Tabela de Procedimentos?',
+                resposta: 'É onde ficam cadastrados os valores cobrados por tipo de atendimento (ex: sessão de Psicologia, Terapia Ocupacional...). Só o Administrador cadastra e edita os valores; esses valores depois aparecem automaticamente na hora de marcar uma consulta na Agenda, sem precisar digitar preço na mão. Também é possível cadastrar um valor diferente para um profissional específico, se ele cobrar fora do padrão.'
+            },
+            {
+                titulo: 'O que são os Pacotes de Atendimento?',
+                resposta: 'É um catálogo de pacotes com preço fechado (ex: atendimento multidisciplinar semanal), cadastrado pelo Administrador. Na hora de lançar um pagamento no Livro Caixa, dá pra escolher "Usar um pacote fechado?" pra preencher automaticamente a descrição e o valor - só o nome do paciente precisa ser ajustado antes de salvar.'
             }
         ]
     },

@@ -100,9 +100,15 @@ export function initFinanceiro() {
         }
 
         const finTipo = document.getElementById('fin-tipo');
-        // Se for recepção, trava a opção apenas para RECEITA
+        // Recepção lança entradas e despesas do dia a dia, mas o repasse aos
+        // profissionais é sensível (envolve remuneração médica) e continua
+        // exclusivo do Administrador.
         if (clinicaState.sessao.perfil === 'recepcao') {
-            finTipo.innerHTML = '<option value="Receita">📥 Entrada (Receita)</option>';
+            finTipo.innerHTML = `
+                <option value="Receita">📥 Entrada (Receita)</option>
+                <option value="Custo Fixo">📤 Saída (Custo Fixo)</option>
+                <option value="Custo Variavel">📤 Saída (Custo Variável / Materiais)</option>
+            `;
         } else {
             // Administrador vê todas as opções de entrada e saída
             finTipo.innerHTML = `
@@ -113,10 +119,37 @@ export function initFinanceiro() {
             `;
         }
 
+        // Atalho de Pacotes é resetado a cada abertura do modal (evita
+        // manter um pacote "escolhido" de um lançamento anterior)
+        const selPacote = document.getElementById('fin-pacote-atalho');
+        if (selPacote) selPacote.value = '';
+
         modalFinanceiro.classList.add('active');
     });
 
     document.getElementById('btn-close-financeiro').addEventListener('click', () => modalFinanceiro.classList.remove('active'));
+
+    // ========================================================
+    // ATALHO DE PACOTES NO LANÇAMENTO
+    // Ao escolher um pacote, pré-preenche Tipo=Receita, Vínculo e Valor -
+    // continua editável (o nome do paciente, principalmente, precisa ser
+    // digitado/ajustado por quem está lançando).
+    // ========================================================
+    const selPacoteAtalho = document.getElementById('fin-pacote-atalho');
+    if (selPacoteAtalho) {
+        selPacoteAtalho.addEventListener('change', (e) => {
+            const pacoteId = e.target.value;
+            if (!pacoteId) return;
+
+            const pacote = clinicaState.pacotes.find(p => String(p.id) === String(pacoteId));
+            if (!pacote) return;
+
+            document.getElementById('fin-tipo').value = 'Receita';
+            document.getElementById('fin-vinculo').value = `Pacote: ${pacote.nome} - `;
+            document.getElementById('fin-valor').value = pacote.valorFechado.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+            document.getElementById('fin-vinculo').focus();
+        });
+    }
 
     // ========================================================
     // LISTENERS DO DASHBOARD PRINCIPAL
@@ -180,6 +213,16 @@ export function initFinanceiro() {
             }
 
             try {
+                // Trava real (não só de UI): mesmo que a recepção tente forçar
+                // o campo Tipo via DevTools, o salvamento recusa Repasse Médico
+                // pra esse perfil - é o único tipo que continua exclusivo do
+                // Administrador (envolve remuneração de profissionais).
+                const tipoSelecionado = document.getElementById('fin-tipo').value;
+                if (clinicaState.sessao.perfil === 'recepcao' && tipoSelecionado === 'Repasse') {
+                    showToast('Repasse Médico é restrito ao Administrador.', 'error');
+                    return;
+                }
+
                 const profSelecionado = clinicaState.profissionais.find(p => String(p.id) === String(document.getElementById('fin-profissional').value));
 
                 const dadosParaSalvar = {
@@ -928,9 +971,13 @@ function renderizarGraficoReceitaProfissional(lancamentosFiltrados) {
 // (usado tanto pela tabela quanto pela exportação em CSV, pra manter os dois sempre consistentes)
 function filtrarLancamentos(filtroTexto = '', filtroMes = 'todos') {
     return clinicaState.financeiro.lancamentos.filter(l => {
+        const origem = (l.origem || 'manual').toLowerCase();
+        const procedimentoNome = (l.procedimentoNome || '').toLowerCase();
         const matchTexto = l.vinculo.toLowerCase().includes(filtroTexto) ||
                            l.tipo.toLowerCase().includes(filtroTexto) ||
-                           l.pagamento.toLowerCase().includes(filtroTexto);
+                           l.pagamento.toLowerCase().includes(filtroTexto) ||
+                           origem.includes(filtroTexto) ||
+                           procedimentoNome.includes(filtroTexto);
 
         let matchMes = true;
         if (filtroMes !== 'todos' && l.competencia) {
@@ -949,7 +996,7 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
     let totalReceitas = 0;
     let totalDespesas = 0;
 
-    const filtrados = filtrarLancamentos(filtroTexto, filtroMes);
+    let filtrados = filtrarLancamentos(filtroTexto, filtroMes);
 
     // TRAVA DE SEGURANÇA: Recepção só enxerga as Entradas no Livro Caixa
     if (clinicaState.sessao.perfil === 'recepcao') {
@@ -973,6 +1020,9 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
         
         let corStatus = l.status === 'Recebido/Pago' ? 'success' : (l.status === 'Glosa' || l.status === 'Inadimplente' ? 'danger bg-danger' : 'warning');
 
+        const origemLabel = l.origem === 'agendamento' ? 'Agenda' : (l.origem || 'Manual');
+        const nomeProcedimento = l.procedimentoNome ? ` • ${escapeHTML(l.procedimentoNome)}` : '';
+
         return `<tr>
             <td>
                 <span style="font-weight: 600;">${l.competencia.split('-').reverse().join('/')}</span><br>
@@ -980,7 +1030,8 @@ export function atualizarTabelaFinanceiro(filtroTexto = '', filtroMes = 'todos')
             </td>
             <td>
                 <strong>${escapeHTML(l.vinculo)}</strong><br>
-                <small style="color: var(--text-light);">${escapeHTML(l.tipo)}</small>
+                <small style="color: var(--text-light);">${escapeHTML(l.tipo)}${nomeProcedimento}</small><br>
+                <small style="color: var(--text-light);"><i class="fa-solid fa-link"></i> Origem: ${escapeHTML(origemLabel)}</small>
             </td>
             <td><i class="fa-solid ${iconPag} icon-primary"></i> ${escapeHTML(l.pagamento)}</td>
             <td><span class="badge ${corStatus}">${escapeHTML(l.status)}</span></td>

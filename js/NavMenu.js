@@ -91,6 +91,8 @@ export function initUI() {
     const hubFinanceiro = document.getElementById('hub-financeiro');
     const areaLivroCaixa = document.getElementById('area-livro-caixa');
     const areaCustosFixos = document.getElementById('area-custos-fixos');
+    const areaProcedimentos = document.getElementById('area-procedimentos');
+    const areaPacotes = document.getElementById('area-pacotes');
 
     document.getElementById('btn-hub-livro-caixa')?.addEventListener('click', () => {
         hubFinanceiro.style.display = 'none';
@@ -102,10 +104,22 @@ export function initUI() {
         areaCustosFixos.style.display = 'block';
     });
 
+    document.getElementById('btn-hub-procedimentos')?.addEventListener('click', () => {
+        hubFinanceiro.style.display = 'none';
+        areaProcedimentos.style.display = 'block';
+    });
+
+    document.getElementById('btn-hub-pacotes')?.addEventListener('click', () => {
+        hubFinanceiro.style.display = 'none';
+        areaPacotes.style.display = 'block';
+    });
+
     document.querySelectorAll('.btn-voltar-hub-financeiro').forEach(btn => {
         btn.addEventListener('click', () => {
             areaLivroCaixa.style.display = 'none';
             areaCustosFixos.style.display = 'none';
+            areaProcedimentos.style.display = 'none';
+            areaPacotes.style.display = 'none';
             hubFinanceiro.style.display = 'flex';
         });
     });

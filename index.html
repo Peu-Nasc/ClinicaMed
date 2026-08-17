@@ -34,7 +34,7 @@
                 </div>
                 <div class="form-group">
                     <label>Senha</label>
-                    <input type="password" id="login-senha" class="input-premium" required placeholder="••••••••">
+                    <input type="password" id="login-senha" class="input-premium" autocomplete="current-password" required placeholder="••••••••">
                 </div>
                 <button type="submit" class="btn-primary login-btn">
                     <i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema
@@ -81,6 +81,7 @@
                 <button id="btn-logout" class="btn-action btn-logout">
                     <i class="fa-solid fa-power-off"></i> Encerrar Sessão
                 </button>
+                <br>
             </div>
         </aside>
 
@@ -203,7 +204,29 @@
                     <div class="section-header">
                         <h2>Agenda Multiprofissional</h2>
                         <div class="agenda-controls">
-                            <input type="date" id="data-agenda" class="input-premium">
+                            <!-- Alternador de período: Dia / Semana / Mês -->
+                            <div class="periodo-toggle" id="agenda-periodo-toggle">
+                                <button type="button" data-periodo="dia" class="active">Dia</button>
+                                <button type="button" data-periodo="semana">Semana</button>
+                                <button type="button" data-periodo="mes">Mês</button>
+                            </div>
+
+                            <div class="agenda-nav-data">
+                                <button type="button" class="btn-nav-data" id="btn-agenda-anterior" title="Anterior"><i class="fa-solid fa-chevron-left"></i></button>
+                                <button type="button" class="btn-nav-data btn-hoje" id="btn-agenda-hoje">Hoje</button>
+                                <button type="button" class="btn-nav-data" id="btn-agenda-proximo" title="Próximo"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+
+                            <span class="agenda-periodo-label" id="agenda-periodo-label"></span>
+
+                            <input type="date" id="data-agenda" class="input-premium" style="max-width:170px;">
+
+                            <!-- Alternância de Visão (só se aplica à visão de Dia) -->
+                            <select id="agenda-visao" class="input-premium select-compact">
+                                <option value="profissionais">Visão: Por Profissionais</option>
+                                <option value="salas">Visão: Por Salas Físicas</option>
+                            </select>
+
                             <select id="filtro-profissional" class="input-premium">
                                 <option value="todos">Todos os Profissionais</option>
                             </select>
@@ -211,17 +234,24 @@
                             <button class="btn-primary" id="btn-novo-agendamento" type="button" data-open-modal="modal-agendamento">+ Agendar</button>
                         </div>
                     </div>
-                    <div class="calendar-container">
+
+                    <!-- VISÃO DIA (grade por profissional/sala, já existente) -->
+                    <div class="calendar-container" id="agenda-view-dia">
                         <div class="time-column" id="time-column-slots">
-                            <div class="time-slot-header">Horário</div>
-                            <div class="time-slot">08:00</div>
-                            <div class="time-slot">09:00</div>
-                            <div class="time-slot">10:00</div>
-                            <div class="time-slot">14:00</div>
-                            <div class="time-slot">15:00</div>
-                            <div class="time-slot">16:00</div>
+                            <!-- Preenchido dinamicamente -->
                         </div>
                         <div id="agenda-professionals" class="agenda-professionals"></div>
+                    </div>
+
+                    <!-- VISÃO SEMANA (7 colunas, uma por dia) -->
+                    <div class="week-container" id="agenda-view-semana" style="display:none;"></div>
+
+                    <!-- VISÃO MÊS (calendário mensal clássico) -->
+                    <div class="month-container" id="agenda-view-mes" style="display:none;">
+                        <div class="month-weekday-row">
+                            <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+                        </div>
+                        <div class="month-grid" id="agenda-month-grid"></div>
                     </div>
                 </section>
 
@@ -451,6 +481,8 @@
                             
                           
 
+                    </div>
+
                     <!-- NÍVEL 2B: Área de Equipe/Profissionais (Oculta por padrão) -->
                     <div id="area-profissionais" style="display: none;">
                         <div class="flex-row gap-15 mb-20">
@@ -622,6 +654,16 @@
                             <h3>Custos Fixos</h3>
                             <p class="top-subtitle mt-15">Aluguel, salários e despesas recorrentes do mês</p>
                         </div>
+                        <div class="card card-action" id="btn-hub-procedimentos">
+                            <i class="fa-solid fa-tags hub-icon"></i>
+                            <h3>Tabela de Procedimentos</h3>
+                            <p class="top-subtitle mt-15">Valores cobrados por tipo de atendimento</p>
+                        </div>
+                        <div class="card card-action" id="btn-hub-pacotes">
+                            <i class="fa-solid fa-box-open hub-icon"></i>
+                            <h3>Pacotes de Atendimento</h3>
+                            <p class="top-subtitle mt-15">Pacotes com preço fechado (ex: equipe multidisciplinar TEA/TDAH)</p>
+                        </div>
                     </div>
 
                     <!-- NÍVEL 2A: Livro Caixa (Oculta por padrão) -->
@@ -640,37 +682,48 @@
                             </div>
                         </div>
 
-                        <!-- NOVO: Mini Dashboard Financeiro Local -->
-                        <div class="card-grid mb-20" id="fin-mini-dash"></div>
+                        <!-- Bloco de CONSULTA (dashboard, filtros e tabela) - a recepção
+                             lança movimentações mas não consulta o Livro Caixa, então
+                             este bloco inteiro é escondido pra esse perfil via
+                             aplicarPermissoesDeTela (login.js) -->
+                        <div id="livro-caixa-consulta">
+                            <!-- NOVO: Mini Dashboard Financeiro Local -->
+                            <div class="card-grid mb-20" id="fin-mini-dash"></div>
 
-                        <!-- NOVO: Filtros de Pesquisa do Financeiro -->
-                        <div class="search-bar">
-                            <input id="search-financeiro" type="text" class="input-form flex-2" placeholder="Pesquisar por Nome, Empresa ou Categoria...">
-                            <select id="filtro-mes-financeiro" class="input-premium flex-1">
-                                <option value="todos">Todos os Meses</option>
-                                <!-- Os meses serão gerados automaticamente pelo JavaScript -->
-                            </select>
-                            <button type="button" class="btn-secondary" id="btn-exportar-financeiro" title="Exportar relatório Excel (receita por forma de pagamento, despesas e gráfico)">
-                                <i class="fa-solid fa-file-excel"></i> Exportar Excel
-                            </button>
+                            <!-- NOVO: Filtros de Pesquisa do Financeiro -->
+                            <div class="search-bar">
+                                <input id="search-financeiro" type="text" class="input-form flex-2" placeholder="Pesquisar por Nome, Empresa ou Categoria...">
+                                <select id="filtro-mes-financeiro" class="input-premium flex-1">
+                                    <option value="todos">Todos os Meses</option>
+                                    <!-- Os meses serão gerados automaticamente pelo JavaScript -->
+                                </select>
+                                <button type="button" class="btn-secondary" id="btn-exportar-financeiro" title="Exportar relatório Excel (receita por forma de pagamento, despesas e gráfico)">
+                                    <i class="fa-solid fa-file-excel"></i> Exportar Excel
+                                </button>
+                            </div>
+
+                            <!-- Tabela Reorganizada e Agrupada -->
+                            <div class="historico-lancamentos table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Datas (Comp / Caixa)</th>
+                                            <th>Descrição / Categoria</th>
+                                            <th>Forma Pag.</th>
+                                            <th>Status</th>
+                                            <th>Valor Líquido</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="finance-table-body"></tbody>
+                                </table>
+                            </div>
                         </div>
 
-                        <!-- Tabela Reorganizada e Agrupada -->
-                        <div class="historico-lancamentos table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Datas (Comp / Caixa)</th>
-                                        <th>Descrição / Categoria</th>
-                                        <th>Forma Pag.</th>
-                                        <th>Status</th>
-                                        <th>Valor Líquido</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="finance-table-body"></tbody>
-                            </table>
-                        </div>
+                        <!-- Mensagem exibida só pra recepção, no lugar do bloco acima -->
+                        <p id="livro-caixa-aviso-recepcao" style="display:none; text-align:center; color:#6C757D; padding:30px;">
+                            <i class="fa-solid fa-lock"></i> Você pode lançar entradas e despesas pelo botão acima. A consulta ao histórico do Livro Caixa é restrita ao Administrador.
+                        </p>
                     </div>
 
                     <!-- NÍVEL 2B: Custos Fixos (Oculta por padrão) -->
@@ -704,6 +757,87 @@
                                     </tr>
                                 </thead>
                                 <tbody id="custo-fixo-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- NÍVEL 2C: Tabela de Procedimentos (Oculta por padrão) -->
+                    <div id="area-procedimentos" style="display: none;">
+                        <div class="flex-row gap-15 mb-20">
+                            <button class="btn-secondary btn-voltar-hub-financeiro"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                            <button class="btn-primary" id="btn-abrir-modal-procedimento" type="button">
+                                <i class="fa-solid fa-plus"></i> Novo Procedimento
+                            </button>
+                        </div>
+
+                        <div class="section-header">
+                            <div>
+                                <h2>Tabela de Procedimentos</h2>
+                                <p class="top-subtitle">Valor cobrado por tipo de atendimento - usado direto na Agenda, pra ninguém precisar digitar preço na mão</p>
+                            </div>
+                        </div>
+
+                        <div class="card-grid mb-20" id="proc-mini-dash"></div>
+
+                        <div class="search-bar">
+                            <input id="search-procedimentos" type="text" class="input-form" placeholder="Pesquisar por nome ou categoria...">
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Procedimento</th>
+                                        <th>Categoria</th>
+                                        <th>Valor Base</th>
+                                        <th>Exceções por Profissional</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="procedimentos-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- NÍVEL 2D: Pacotes de Atendimento (Oculta por padrão) -->
+                    <!-- Catálogo com preço FECHADO (não soma sessão por sessão) - cadastro
+                         exclusivo do Administrador. A recepção não gerencia esse catálogo,
+                         mas pode usá-lo como atalho na hora de lançar um pagamento no Livro
+                         Caixa (ver modal-financeiro). O vínculo com a Agenda (quantas sessões,
+                         fechamento semanal etc.) ainda não foi definido com a clínica - por
+                         enquanto isso aqui é só o cadastro do valor fechado de cada pacote. -->
+                    <div id="area-pacotes" style="display: none;">
+                        <div class="flex-row gap-15 mb-20">
+                            <button class="btn-secondary btn-voltar-hub-financeiro"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+                            <button class="btn-primary" id="btn-abrir-modal-pacote" type="button">
+                                <i class="fa-solid fa-plus"></i> Novo Pacote
+                            </button>
+                        </div>
+
+                        <div class="section-header">
+                            <div>
+                                <h2>Pacotes de Atendimento</h2>
+                                <p class="top-subtitle">Preço fechado por pacote (ex: atendimento multidisciplinar TEA/TDAH) - usado como atalho na hora de lançar o pagamento</p>
+                            </div>
+                        </div>
+
+                        <div class="card-grid mb-20" id="pac-mini-dash"></div>
+
+                        <div class="search-bar">
+                            <input id="search-pacotes" type="text" class="input-form" placeholder="Pesquisar por nome do pacote...">
+                        </div>
+
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Pacote</th>
+                                        <th>Descrição</th>
+                                        <th>Preço Fechado</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pacotes-table-body"></tbody>
                             </table>
                         </div>
                     </div>
@@ -884,6 +1018,13 @@
             </header>
             <div class="modal-body">
                 <form id="form-financeiro" class="form-grid">
+                    <div class="form-group full-width">
+                        <label>Usar um pacote fechado? (opcional)</label>
+                        <select id="fin-pacote-atalho" class="input-premium">
+                            <option value="">Nenhum - lançamento avulso</option>
+                        </select>
+                        <small style="color: var(--text-light);">Preenche o vínculo e o valor automaticamente - edite o nome do paciente antes de salvar.</small>
+                    </div>
                     <div class="form-group">
                         <label>Tipo (DRE) *</label>
                         <select id="fin-tipo" class="input-premium" required>
@@ -959,6 +1100,71 @@
         </div>
     </div>
 
+    <!-- ================== MODAL DA TABELA DE PROCEDIMENTOS ================== -->
+    <div id="modal-procedimento" class="modal-overlay">
+        <div class="modal-content modal-sm">
+            <header class="modal-header">
+                <h2>Procedimento</h2>
+                <button class="btn-close-modal" id="btn-close-procedimento" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body">
+                <form id="form-procedimento" class="form-grid">
+                    <div class="form-group full-width"><label>Nome do Procedimento *</label><input type="text" id="proc-nome" class="input-premium" placeholder="Ex: Sessão de Psicologia (50min)" required></div>
+                    <div class="form-group full-width">
+                        <label>Especialidade / Categoria *</label>
+                        <select id="proc-categoria" class="input-premium" required>
+                            <option value="" disabled selected>Selecione...</option>
+                            <option value="Psicologia">Psicologia</option>
+                            <option value="Terapia Ocupacional">Terapia Ocupacional</option>
+                            <option value="Fisioterapia">Fisioterapia</option>
+                            <option value="Fonoaudiologia">Fonoaudiologia</option>
+                            <option value="Avaliacao">Avaliação / Triagem</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width"><label>Valor Base (R$) *</label><input type="text" id="proc-valor" class="input-premium" required placeholder="0,00"></div>
+
+                    <div class="form-group full-width">
+                        <div class="flex-row gap-15" style="justify-content: space-between;">
+                            <label style="margin-bottom:0;">Valor diferenciado por profissional (opcional)</label>
+                            <button type="button" class="btn-secondary" id="btn-add-excecao-proc" style="padding: 4px 10px; font-size: 0.8rem;">
+                                <i class="fa-solid fa-plus"></i> Adicionar
+                            </button>
+                        </div>
+                        <p class="top-subtitle" style="margin: 4px 0 10px;">Use só se algum profissional cobrar diferente do valor base acima.</p>
+                        <div id="proc-excecoes-lista"></div>
+                    </div>
+
+                    <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-tag"></i> Salvar Procedimento</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-pacote" class="modal-overlay">
+        <div class="modal-content modal-sm">
+            <header class="modal-header">
+                <h2>Pacote de Atendimento</h2>
+                <button class="btn-close-modal" id="btn-close-pacote" type="button" data-close-modal><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body">
+                <form id="form-pacote" class="form-grid">
+                    <div class="form-group full-width"><label>Nome do Pacote *</label><input type="text" id="pac-nome" class="input-premium" placeholder="Ex: Pacote Semanal TEA - Psico + TO" required></div>
+                    <div class="form-group full-width">
+                        <label>O que está incluso *</label>
+                        <textarea id="pac-descricao" class="textarea-form" rows="3" placeholder="Ex: 3x Psicologia + 2x Terapia Ocupacional por semana" required></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Preço Fechado do Pacote (R$) *</label>
+                        <input type="text" id="pac-valor" class="input-premium" required placeholder="0,00">
+                        <small style="color: var(--text-light);">Valor total já fechado, não soma sessão por sessão.</small>
+                    </div>
+                    <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-box-open"></i> Salvar Pacote</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     
 
     <div id="modal-agendamento" class="modal-overlay">
@@ -986,32 +1192,32 @@
                         <small style="color: var(--text-light);">Salas já ocupadas no horário escolhido ficam desabilitadas aqui.</small>
                     </div>
                     
-                    <!-- NOVO CAMPO: Tipo de Atendimento -->
+                    <!-- NOVO FLUXO: atendimento avulso usa a tabela de procedimentos;
+                         sessões de pacote ficam reservadas para o módulo futuro. -->
                     <div class="form-group full-width">
                         <label>Tipo de Atendimento *</label>
                         <select id="agenda-tipo" class="input-premium" required>
-                            <option value="Primeira Consulta">Primeira Consulta</option>
-                            <option value="Retorno">Retorno</option>
-                            <option value="Procedimento">Procedimento / Exame</option>
-                            <option value="Consulta Periódica">Consulta Periódica</option>
+                            <option value="procedimento_avulso">Procedimento avulso</option>
+                            <option value="pacote">Sessão de Pacote</option>
                         </select>
+                    </div>
+
+                    <div id="grupo-agenda-procedimento" class="form-group full-width">
+                        <label>Procedimento *</label>
+                        <select id="agenda-procedimento" class="input-premium" required>
+                            <option value="">Selecione o procedimento...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Valor do Atendimento</label>
+                        <input type="text" id="agenda-valor" class="input-premium" readonly value="R$ 0,00">
                     </div>
 
                     <div class="form-group"><label>Data *</label><input type="date" id="agenda-data" class="input-premium" required></div>
                     <div class="form-group">
                         <label>Horário *</label>
-                        <select id="agenda-hora" class="input-premium" required>
-                            <option value="" disabled selected>Selecione...</option>
-                            <option value="08:00">08:00</option>
-                            <option value="09:00">09:00</option>
-                            <option value="10:00">10:00</option>
-                            <option value="11:00">11:00</option>
-                            <option value="13:00">13:00</option>
-                            <option value="14:00">14:00</option>
-                            <option value="15:00">15:00</option>
-                            <option value="16:00">16:00</option>
-                            <option value="17:00">17:00</option>
-                        </select>
+                        <input type="time" id="agenda-hora" class="input-premium" required>
                     </div>
                     <div class="form-actions full-width"><button type="submit" class="btn-primary">Confirmar Horário</button></div>
                 </form>
@@ -1042,33 +1248,13 @@
                     <div id="bloqueio-horario-especifico-group" class="full-width form-grid" style="display: none;">
                         <div class="form-group">
                             <label>Início *</label>
-                            <select id="bloqueio-hora-inicio" class="input-premium">
-                                <option value="08:00">08:00</option>
-                                <option value="09:00">09:00</option>
-                                <option value="10:00">10:00</option>
-                                <option value="11:00">11:00</option>
-                                <option value="13:00">13:00</option>
-                                <option value="14:00">14:00</option>
-                                <option value="15:00">15:00</option>
-                                <option value="16:00">16:00</option>
-                                <option value="17:00">17:00</option>
-                            </select>
+                            <input type="time" id="bloqueio-hora-inicio" class="input-premium" value="08:00">
                         </div>
                         <div class="form-group">
                             <label>Fim *</label>
-                            <select id="bloqueio-hora-fim" class="input-premium">
-                                <option value="08:00">08:00</option>
-                                <option value="09:00">09:00</option>
-                                <option value="10:00">10:00</option>
-                                <option value="11:00">11:00</option>
-                                <option value="13:00">13:00</option>
-                                <option value="14:00">14:00</option>
-                                <option value="15:00">15:00</option>
-                                <option value="16:00" selected>16:00</option>
-                                <option value="17:00">17:00</option>
-                            </select>
+                            <input type="time" id="bloqueio-hora-fim" class="input-premium" value="16:00">
                         </div>
-                    </div>
+                    </div> 
 
                     <div class="form-group full-width">
                         <label>Motivo (opcional)</label>
@@ -1094,16 +1280,27 @@
                         <label class="checkbox-label"><input type="checkbox" id="confirmacao-whatsapp"> Confirmação enviada via WhatsApp</label>
                     </div>
                     <div class="form-group full-width">
-                        <label class="checkbox-label"><input type="checkbox" id="confirmacao-pagamento"> Pagamento já realizado</label>
+                        <label class="checkbox-label"><input type="checkbox" id="confirmacao-chegou"> Paciente já chegou à clínica</label>
                     </div>
                     <div class="form-group full-width">
-                        <label class="checkbox-label"><input type="checkbox" id="confirmacao-chegou"> Paciente já chegou à clínica</label>
+                        <label>Forma de pagamento *</label>
+                        <select id="pagamento-forma" class="input-premium" required>
+                            <option value="Pix">Pix</option>
+                            <option value="Credito">Cartão de Crédito</option>
+                            <option value="Debito">Cartão de Débito</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Boleto">Boleto / Transferência</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Valor recebido *</label>
+                        <input type="text" id="pagamento-valor" class="input-premium" required placeholder="0,00">
                     </div>
                     <div class="form-group full-width">
                         <label>Outras observações (opcional)</label>
                         <textarea id="confirmacao-observacoes" class="textarea-form" rows="2"></textarea>
                     </div>
-                    <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-check"></i> Confirmar Consulta</button></div>
+                    <div class="form-actions full-width"><button type="submit" class="btn-primary"><i class="fa-solid fa-check"></i> Confirmar Pagamento</button></div>
                 </form>
             </div>
         </div>
