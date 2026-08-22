@@ -7,6 +7,71 @@ import { verificarAlertasEstoque } from './estoque.js';
 import { atualizarListaNotificacoes } from './notificacoes.js';
 import { atualizarTabelaAuditoria } from './auditoria.js';
 
+const TITULOS_CARD_INICIO = {
+    dashboard: 'Dashboard & DRE',
+    agenda: 'Agenda',
+    pacientes: 'Pacientes & Prontuários',
+    estoque: 'Estoque (Anvisa)',
+    financeiro: 'Financeiro',
+    notificacoes: 'Notificações',
+    auditoria: 'Auditoria',
+    ajuda: 'Ajuda'
+};
+
+const ICONES_CARD_INICIO = {
+    dashboard: 'fa-solid fa-chart-line',
+    agenda: 'fa-regular fa-calendar-days',
+    pacientes: 'fa-solid fa-users',
+    estoque: 'fa-solid fa-boxes-stacked',
+    financeiro: 'fa-solid fa-cash-register',
+    notificacoes: 'fa-solid fa-bell',
+    auditoria: 'fa-solid fa-file-signature',
+    ajuda: 'fa-solid fa-circle-question'
+};
+
+const DESCRICOES_CARD_INICIO = {
+    dashboard: 'Resultado financeiro e indicadores gerais da clínica',
+    agenda: 'Marcar, confirmar e acompanhar as consultas do dia',
+    pacientes: 'Prontuários, histórico e cadastro de pacientes',
+    estoque: 'Controle de medicamentos e materiais por lote',
+    financeiro: 'Livro Caixa, Custos Fixos, Procedimentos e Pacotes',
+    notificacoes: 'Pendências que precisam da sua atenção',
+    auditoria: 'Histórico de ações realizadas no sistema',
+    ajuda: 'Dúvidas rápidas sobre como usar o sistema'
+};
+
+// Tela de Início: um card de atalho pra cada módulo que o perfil logado
+// efetivamente enxerga no menu lateral. Em vez de duplicar as regras de
+// permissão aqui, a função só olha quais botões do menu já estão visíveis
+// (aplicarPermissoesDeTela, em login.js, roda antes e decide isso) - então
+// a tela de Início nunca fica dessincronizada de quem pode ver o quê.
+export function renderizarCardsInicio() {
+    const container = document.getElementById('inicio-cards');
+    if (!container) return;
+
+    const botoesVisiveis = Array.from(document.querySelectorAll('.menu-btn')).filter(btn => {
+        const target = btn.getAttribute('data-target');
+        if (target === 'inicio') return false;
+        return window.getComputedStyle(btn).display !== 'none';
+    });
+
+    container.innerHTML = botoesVisiveis.map(btn => {
+        const target = btn.getAttribute('data-target');
+        return `
+            <div class="card card-action inicio-card" data-target="${target}">
+                <i class="${ICONES_CARD_INICIO[target] || 'fa-solid fa-circle'} hub-icon"></i>
+                <h3>${TITULOS_CARD_INICIO[target] || target}</h3>
+                <p class="top-subtitle mt-15">${DESCRICOES_CARD_INICIO[target] || ''}</p>
+            </div>`;
+    }).join('');
+
+    container.querySelectorAll('.inicio-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelector(`.menu-btn[data-target="${card.dataset.target}"]`)?.click();
+        });
+    });
+}
+
 export function initUI() {
     const sidebar = document.getElementById('sidebar');
     const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
@@ -50,6 +115,7 @@ export function initUI() {
             fecharMenuMobile();
             
             // Dispara funções específicas ao trocar de aba
+            if (target === 'inicio') renderizarCardsInicio();
             if (target === 'estoque') verificarAlertasEstoque();
             if (target === 'dashboard') calcularDRE();
             if (target === 'agenda') atualizarAgenda();
@@ -70,6 +136,10 @@ export function initUI() {
     });
 
     document.getElementById('btn-hub-profissionais')?.addEventListener('click', () => {
+        if (clinicaState.sessao.perfil === 'Doutor(a)') {
+            showToast('Gestão da equipe é restrita à Administração.', 'error');
+            return;
+        }
         hubPrincipal.style.display = 'none';
         areaProfissionais.style.display = 'block';
     });

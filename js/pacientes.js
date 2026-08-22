@@ -18,9 +18,29 @@ let anexosParaExcluirDoStorage = [];
 export function initPacientes() {
     const modalCadastro = document.getElementById('modal-cadastro');
     const tipoCadastro = document.getElementById('tipo-cadastro');
-    
-    document.getElementById('btn-novo-paciente').addEventListener('click', () => abrirModalCadastro('paciente'));
-    document.getElementById('btn-novo-profissional').addEventListener('click', () => abrirModalCadastro('profissional'));
+
+    // Limpa o atributo que diz qual área de impressão mostrar (Receituário
+    // A4 ou Prontuário A5, ver btn-imprimir-receita/btn-imprimir-pep) assim
+    // que a caixa de diálogo de impressão do navegador fecha.
+    window.addEventListener('afterprint', () => document.body.removeAttribute('data-impressao'));
+
+    document.getElementById('btn-novo-paciente').addEventListener('click', () => {
+        // Trava real (não só visual): o botão já fica oculto pro Doutor(a)
+        // em login.js, mas essa segunda barreira evita depender só do
+        // CSS/display caso alguém force o clique via DevTools.
+        if (clinicaState.sessao.perfil === 'Doutor(a)') {
+            showToast('Cadastro de paciente é restrito à Recepção e Administração.', 'error');
+            return;
+        }
+        abrirModalCadastro('paciente');
+    });
+    document.getElementById('btn-novo-profissional').addEventListener('click', () => {
+        if (clinicaState.sessao.perfil === 'Doutor(a)') {
+            showToast('Gestão da equipe é restrita à Administração.', 'error');
+            return;
+        }
+        abrirModalCadastro('profissional');
+    });
     document.getElementById('btn-close-cadastro').addEventListener('click', () => { 
         modalCadastro.classList.remove('active');
         pacienteEmEdicaoId = null; 
@@ -236,6 +256,49 @@ export function initPacientes() {
     });
 
     // ==========================================
+    // IMPRESSÃO DO PRONTUÁRIO (RESUMO EM A5)
+    // Formato compacto pra grampear na pasta física do paciente - mostra os
+    // dados básicos e a evolução mais recente, não o histórico inteiro
+    // (esse fica na tela, aba "Histórico Clínico"). Usa folha A5, diferente
+    // do Receituário (btn-imprimir-receita), que é A4 - ver @media print
+    // em style.css, que escolhe o tamanho pelo atributo data-impressao.
+    // ==========================================
+    const btnImprimirPep = document.getElementById('btn-imprimir-pep');
+    if (btnImprimirPep) {
+        btnImprimirPep.addEventListener('click', () => {
+            if (!pacienteAtivoId) return;
+            const paciente = clinicaState.pacientes.find(p => String(p.id) === String(pacienteAtivoId));
+            if (!paciente) return;
+
+            const dataNasc = paciente.nascimento ? paciente.nascimento.split('-').reverse().join('/') : 'Não inf.';
+            document.getElementById('print-pep-nome').textContent = paciente.nome;
+            document.getElementById('print-pep-dados').textContent = `CPF: ${paciente.cpf || 'Não inf.'} | Nasc: ${dataNasc} | Tel: ${paciente.telefone || 'Não inf.'}`;
+            document.getElementById('print-pep-convenio').textContent = paciente.convenio || 'Particular';
+            document.getElementById('print-pep-alergias').textContent = paciente.alergias || 'Nenhuma alergia registrada';
+            document.getElementById('print-pep-data').textContent = new Date().toLocaleDateString('pt-BR');
+
+            const ultimaEvolucao = (paciente.evolucoes || []).slice(-1)[0];
+            const elConteudo = document.getElementById('print-pep-conteudo');
+            const elAssinatura = document.getElementById('print-pep-assinatura');
+            if (ultimaEvolucao) {
+                const textoFormatado = escapeHTML(decriptar(ultimaEvolucao.texto))
+                    .replace(/\n/g, '<br>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                elConteudo.innerHTML = textoFormatado;
+                elAssinatura.textContent = `Última evolução: ${ultimaEvolucao.data} - ${ultimaEvolucao.assinatura}`;
+            } else {
+                elConteudo.textContent = 'Sem evoluções registradas ainda.';
+                elAssinatura.textContent = '';
+            }
+
+            // Sinaliza pro CSS de impressão que é o Prontuário (A5) que deve
+            // aparecer - ver comentário equivalente no handler do Receituário.
+            document.body.setAttribute('data-impressao', 'pep');
+            window.print();
+        });
+    }
+
+    // ==========================================
     // SALVAMENTO DE EVOLUÇÃO COM CRIPTOGRAFIA
     // ==========================================
     document.getElementById('form-evolucao').addEventListener('submit', async (e) => {
@@ -398,6 +461,16 @@ export function initPacientes() {
 
             if (btnAbrir) abrirProntuario(btnAbrir.getAttribute('data-id'));
 
+            if (btnEditar && clinicaState.sessao.perfil === 'Doutor(a)') {
+                showToast('Edição de pacientes não permitida para este perfil.', 'error');
+                return;
+            }
+
+            if (btnExcluir && clinicaState.sessao.perfil === 'Doutor(a)') {
+                showToast('Exclusão de pacientes não permitida para este perfil.', 'error');
+                return;
+            }
+
             if (btnExcluir) {
                 const idPac = btnExcluir.getAttribute('data-id');
                 if (await confirmarAcao('Deseja excluir permanentemente este paciente? Todo o histórico de prontuário será perdido.', { titulo: 'Excluir paciente', textoConfirmar: 'Excluir' })) {
@@ -534,6 +607,10 @@ export function initPacientes() {
             document.getElementById('print-medico-nome').textContent = profissional.nome;
             document.getElementById('print-medico-registro').textContent = `${profissional.conselho}: ${profissional.registro}`;
 
+            // Sinaliza pro CSS de impressão (@media print) que é o Receituário
+            // que deve aparecer - ele usa folha A4, diferente do Prontuário
+            // (A5, ver btn-imprimir-pep) que compartilha a mesma tela.
+            document.body.setAttribute('data-impressao', 'receita');
             window.print();
 
             // ENCAMINHAMENTO ESPECIALIZADO: avisa a recepção pra ela já
@@ -830,15 +907,17 @@ export function atualizarTabelaPacientes(lista = clinicaState.pacientes) {
                 <td>
                     <div class="row-actions">
                         ${clinicaState.sessao.perfil === 'Doutor(a)' ? `
-                        <button class="btn-action btn-abrir-prontuario" data-id="${p.id}" title="Acessar Ficha">
-                            <i class="fa-regular fa-folder-open"></i>
-                        </button>` : ''}
-                        <button class="btn-action btn-edit btn-editar-paciente" data-id="${p.id}" title="Editar Dados">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <button class="btn-action btn-delete btn-excluir-paciente" data-id="${p.id}" title="Excluir Cadastro">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
+                            <button class="btn-action btn-abrir-prontuario" data-id="${p.id}" title="Acessar Ficha">
+                                <i class="fa-regular fa-folder-open"></i>
+                            </button>
+                        ` : `
+                            <button class="btn-action btn-edit btn-editar-paciente" data-id="${p.id}" title="Editar Dados">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button class="btn-action btn-delete btn-excluir-paciente" data-id="${p.id}" title="Excluir Cadastro">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        `}
                     </div>
                 </td>
             </tr>`;

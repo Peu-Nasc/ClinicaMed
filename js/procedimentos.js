@@ -32,6 +32,7 @@ export function initProcedimentos() {
     if (btnAbrir) {
         btnAbrir.addEventListener('click', () => {
             limparListaExcecoes();
+            resetarSplitParaPadrao();
             modal.classList.add('active');
         });
     }
@@ -46,6 +47,30 @@ export function initProcedimentos() {
     const btnAddExcecao = document.getElementById('btn-add-excecao-proc');
     if (btnAddExcecao) {
         btnAddExcecao.addEventListener('click', () => adicionarLinhaExcecao());
+    }
+
+    // ==========================================
+    // SPLIT DE REPASSE (profissional x clínica) - simples e dinâmico:
+    // um slider de 0 a 100% que recalcula os dois valores em tempo real,
+    // olhando pro Valor Base atual. Só existe dentro do modal, que já é
+    // exclusivo do Administrador (ver aplicarPermissoesDeTela em login.js).
+    // ==========================================
+    const checkSplitAtivo = document.getElementById('proc-split-ativo');
+    const containerSplit = document.getElementById('proc-split-config');
+    const inputSplitPercentual = document.getElementById('proc-split-percentual');
+
+    if (checkSplitAtivo && containerSplit) {
+        checkSplitAtivo.addEventListener('change', () => {
+            containerSplit.style.display = checkSplitAtivo.checked ? 'block' : 'none';
+            atualizarPreviewSplit();
+        });
+    }
+    if (inputSplitPercentual) {
+        inputSplitPercentual.addEventListener('input', atualizarPreviewSplit);
+    }
+    const inputValorBase = document.getElementById('proc-valor');
+    if (inputValorBase) {
+        inputValorBase.addEventListener('input', atualizarPreviewSplit);
     }
 
     const search = document.getElementById('search-procedimentos');
@@ -76,11 +101,16 @@ export function initProcedimentos() {
                     return;
                 }
 
+                const splitAtivo = document.getElementById('proc-split-ativo').checked;
+                const percentualProfissional = splitAtivo ? (parseInt(document.getElementById('proc-split-percentual').value, 10) || 0) : null;
+
                 const dadosParaSalvar = {
                     nome: document.getElementById('proc-nome').value,
                     categoria: document.getElementById('proc-categoria').value,
                     valorBase: parseFloat(valorBaseTexto),
                     excecoes,
+                    splitAtivo,
+                    percentualProfissional,
                     clinicaId: clinicaState.sessao.clinicaId
                 };
 
@@ -149,6 +179,39 @@ function fecharFormularioProcedimento() {
     procedimentoEmEdicaoId = null;
     document.getElementById('form-procedimento').reset();
     limparListaExcecoes();
+    resetarSplitParaPadrao();
+}
+
+// Recalcula e mostra "Profissional: X% - R$ Y" / "Clínica: (100-X)% - R$ Z"
+// com base no Valor Base atual e no % escolhido no slider - roda a cada
+// mudança no slider ou no valor, pra sensação de "ao vivo".
+function atualizarPreviewSplit() {
+    const elPreviewProf = document.getElementById('proc-split-preview-prof');
+    const elPreviewClinica = document.getElementById('proc-split-preview-clinica');
+    if (!elPreviewProf || !elPreviewClinica) return;
+
+    const percentualProf = parseInt(document.getElementById('proc-split-percentual').value, 10) || 0;
+    const percentualClinica = 100 - percentualProf;
+
+    const valorBaseTexto = document.getElementById('proc-valor').value.replace(/\./g, '').replace(',', '.');
+    const valorBase = parseFloat(valorBaseTexto) || 0;
+
+    const valorProf = valorBase * (percentualProf / 100);
+    const valorClinica = valorBase * (percentualClinica / 100);
+
+    elPreviewProf.textContent = `${percentualProf}% - ${formatCurrency(valorProf)}`;
+    elPreviewClinica.textContent = `${percentualClinica}% - ${formatCurrency(valorClinica)}`;
+}
+
+function resetarSplitParaPadrao() {
+    const checkSplitAtivo = document.getElementById('proc-split-ativo');
+    const containerSplit = document.getElementById('proc-split-config');
+    const inputSplitPercentual = document.getElementById('proc-split-percentual');
+
+    if (checkSplitAtivo) checkSplitAtivo.checked = false;
+    if (containerSplit) containerSplit.style.display = 'none';
+    if (inputSplitPercentual) inputSplitPercentual.value = 50;
+    atualizarPreviewSplit();
 }
 
 function limparListaExcecoes() {
@@ -220,6 +283,13 @@ function abrirFormularioParaEdicao(item) {
         adicionarLinhaExcecao(x.profissionalId, valorExcecao.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
     });
 
+    const checkSplitAtivo = document.getElementById('proc-split-ativo');
+    const containerSplit = document.getElementById('proc-split-config');
+    checkSplitAtivo.checked = !!item.splitAtivo;
+    containerSplit.style.display = item.splitAtivo ? 'block' : 'none';
+    document.getElementById('proc-split-percentual').value = item.splitAtivo ? (item.percentualProfissional ?? 50) : 50;
+    atualizarPreviewSplit();
+
     document.getElementById('modal-procedimento').classList.add('active');
 }
 
@@ -238,10 +308,15 @@ export function atualizarTabelaProcedimentos(filtro = '') {
             ? '<span style="color:#6C757D;">Nenhuma - valor único</span>'
             : excecoes.map(x => `${escapeHTML(x.profissionalNome)}: <strong>${formatCurrency(x.valor)}</strong>`).join('<br>');
 
+        const textoSplit = p.splitAtivo
+            ? `<small>Profissional: <strong>${formatCurrency(p.valorBase * (p.percentualProfissional / 100))}</strong> (${p.percentualProfissional}%)<br>Clínica: <strong>${formatCurrency(p.valorBase * ((100 - p.percentualProfissional) / 100))}</strong> (${100 - p.percentualProfissional}%)</small>`
+            : '<span style="color:#6C757D;">Não configurado</span>';
+
         return `<tr>
             <td><strong>${escapeHTML(p.nome)}</strong></td>
             <td><span class="badge primary">${escapeHTML(p.categoria)}</span></td>
             <td class="positivo valor-lancamento">${formatCurrency(p.valorBase)}</td>
+            <td>${textoSplit}</td>
             <td><small>${textoExcecoes}</small></td>
             <td>
                 <div class="row-actions">
@@ -257,7 +332,7 @@ export function atualizarTabelaProcedimentos(filtro = '') {
     }).join('');
 
     if (filtrados.length === 0) {
-        corpo.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#6C757D; padding:20px;">Nenhum procedimento cadastrado ainda.</td></tr>';
+        corpo.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#6C757D; padding:20px;">Nenhum procedimento cadastrado ainda.</td></tr>';
     }
 
     const elTotal = document.getElementById('proc-stat-total');
@@ -281,6 +356,26 @@ export function valorDoProcedimentoParaProfissional(procedimentoId, profissional
     const excecao = (proc.excecoes || []).find(x => String(x.profissionalId) === String(profissionalId));
     const valor = excecao ? excecao.valor : proc.valorBase;
     return Number(valor) || 0;
+}
+
+// Utilitário pra outros módulos (Financeiro, Agenda) calcularem quanto do
+// valor de uma consulta específica fica com o profissional e quanto fica
+// com a clínica, usando o % configurado no procedimento. Se o split não
+// estiver ativo, retorna tudo como "profissional" (comportamento anterior,
+// sem repasse configurado).
+export function splitDoProcedimento(procedimentoId, valorConsulta) {
+    const proc = clinicaState.procedimentos.find(p => String(p.id) === String(procedimentoId));
+    const valor = Number(valorConsulta) || 0;
+
+    if (!proc || !proc.splitAtivo) {
+        return { valorProfissional: valor, valorClinica: 0, percentualProfissional: 100 };
+    }
+
+    const percentualProfissional = proc.percentualProfissional ?? 100;
+    const valorProfissional = valor * (percentualProfissional / 100);
+    const valorClinica = valor - valorProfissional;
+
+    return { valorProfissional, valorClinica, percentualProfissional };
 }
 
 export async function carregarProcedimentos() {

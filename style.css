@@ -1808,19 +1808,37 @@ summary.timeline-meta:hover {
 @media print {
     /* Esconde o sistema inteiro */
     body * { visibility: hidden; }
-    
-    /* Mostra SOMENTE o molde da receita */
-    #print-area-receita, #print-area-receita * { visibility: visible; }
-    
-    #print-area-receita {
+
+    /* Mostra só a área correspondente ao documento sendo impresso - o
+       atributo data-impressao é setado em JS (pacientes.js) logo antes de
+       chamar window.print(), e removido no 'afterprint' */
+    body[data-impressao="receita"] #print-area-receita,
+    body[data-impressao="receita"] #print-area-receita * { visibility: visible; }
+
+    body[data-impressao="pep"] #print-area-pep,
+    body[data-impressao="pep"] #print-area-pep * { visibility: visible; }
+
+    #print-area-receita, #print-area-pep {
         position: absolute;
         left: 0;
         top: 0;
         width: 100%;
-        display: block;
         padding: 40px;
         background: white;
     }
+
+    body[data-impressao="receita"] #print-area-receita { display: block; }
+    body[data-impressao="pep"] #print-area-pep { display: block; }
+
+    /* TAMANHO DE PAPEL: Receituário é o documento oficial que o paciente
+       leva embora - folha A4 padrão. Prontuário é um resumo compacto pra
+       grampear na pasta física do paciente - folha A5, por isso também
+       tem um padding menor que o receituário. */
+    #print-area-receita { page: receituario-a4; }
+    #print-area-pep { page: prontuario-a5; padding: 24px; }
+
+    @page receituario-a4 { size: A4; margin: 15mm; }
+    @page prontuario-a5 { size: A5; margin: 10mm; }
 
     .print-header { 
         text-align: center; 
@@ -1853,6 +1871,18 @@ summary.timeline-meta:hover {
         width: 400px; 
         margin: 0 auto 10px auto; 
     }
+
+    /* Ajustes de escala pro Prontuário (A5): a folha é bem menor que a A4
+       usada como base pros valores acima, então tudo fica proporcionalmente
+       mais compacto - senão o conteúdo estoura a página. */
+    #print-area-pep .print-header { padding-bottom: 12px; margin-bottom: 16px; }
+    #print-area-pep .print-header h2 { font-size: 16px; }
+    #print-area-pep .print-header-info p { font-size: 11px; }
+    #print-area-pep .print-doc-title { font-size: 16px; margin-bottom: 16px; }
+    #print-area-pep .print-paciente { font-size: 12px; margin-bottom: 16px; }
+    #print-area-pep .print-body { font-size: 12px; line-height: 1.5; min-height: 0; margin-bottom: 24px; }
+    #print-area-pep .print-footer { margin-top: 20px; }
+    #print-area-pep .assinatura-linha { width: 200px; }
 }
 
 /* =========================================================

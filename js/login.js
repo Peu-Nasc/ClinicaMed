@@ -10,6 +10,7 @@ import { carregarProcedimentos } from './procedimentos.js';
 import { carregarPacotes } from './pacotes.js';
 import { carregarAuditoria, registrarAuditoria } from './auditoria.js';
 import { atualizarAjudaPorPerfil } from './ajuda.js';
+import { renderizarCardsInicio } from './NavMenu.js';
 
 // ========================================================
 // RESTRIÇÃO DE ACESSO POR IP (por clínica)
@@ -258,6 +259,12 @@ function aplicarPermissoesDeTela() {
     const btnEst = document.querySelector('.menu-btn[data-target="estoque"]');
     const btnAudit = document.getElementById('btn-menu-auditoria');
 
+    // Dentro de Pacientes & Prontuários: o Doutor(a) só consulta - cadastro
+    // de paciente novo e a Área da Equipe (gestão de outros profissionais)
+    // não fazem parte da rotina dele, então ficam ocultos pra esse perfil.
+    const btnNovoPaciente = document.getElementById('btn-novo-paciente');
+    const btnHubProfissionais = document.getElementById('btn-hub-profissionais');
+
     // Sub-áreas de dentro do Financeiro: a recepção tem uma tela própria e
     // simplificada (só o formulário de lançamento) - o hub com Livro Caixa
     // completo e Custos Fixos é exclusivo do Administrador.
@@ -270,6 +277,8 @@ function aplicarPermissoesDeTela() {
     if(btnDash) btnDash.style.display = 'flex';
     if(btnFin) btnFin.style.display = 'flex';
     if(btnEst) btnEst.style.display = 'flex';
+    if(btnNovoPaciente) btnNovoPaciente.style.display = '';
+    if(btnHubProfissionais) btnHubProfissionais.style.display = '';
     if(hubFinanceiro) hubFinanceiro.style.display = '';
     if(formFinanceiroRecepcao) formFinanceiroRecepcao.style.display = 'none';
     // Auditoria é o oposto dos outros: só aparece para o Administrador
@@ -281,9 +290,12 @@ function aplicarPermissoesDeTela() {
         if(btnDash) btnDash.style.display = 'none';
         if(btnFin) btnFin.style.display = 'none';
         if(btnEst) btnEst.style.display = 'none';
-        
-        // Força a tela inicial dele ser a Agenda
-        document.querySelector('.menu-btn[data-target="agenda"]').click();
+
+        // Nem cadastro de paciente novo, nem gestão da equipe - ele consulta
+        // prontuário, não administra cadastro (ver pacientes.js, trava real
+        // no clique do botão pro caso de alguém forçar via DevTools)
+        if(btnNovoPaciente) btnNovoPaciente.style.display = 'none';
+        if(btnHubProfissionais) btnHubProfissionais.style.display = 'none';
     } 
     else if (perfil === 'recepcao') {
         // Recepção não vê o Dashboard/DRE (é análise gerencial).
@@ -311,9 +323,6 @@ function aplicarPermissoesDeTela() {
         
         // Removemos o "Caixa Cego" antigo, pois agora ela usa o Livro Caixa oficial
         if(formFinanceiroRecepcao) formFinanceiroRecepcao.style.display = 'none';
-        
-        // Força a tela inicial ser a Agenda
-        document.querySelector('.menu-btn[data-target="agenda"]').click();
     }
     else if (perfil === 'admin') {
         // Só o Administrador tem acesso ao log de auditoria
@@ -324,4 +333,9 @@ function aplicarPermissoesDeTela() {
     // carregamento inicial da página (antes do login) ela tinha sido
     // montada com todos os módulos, por ainda não saber quem ia entrar.
     atualizarAjudaPorPerfil();
+
+    // Tela de Início: cards de atalho pra cada módulo que esse perfil
+    // efetivamente enxerga no menu lateral - montada só agora que todas as
+    // travas de visibilidade acima já rodaram.
+    renderizarCardsInicio();
 }

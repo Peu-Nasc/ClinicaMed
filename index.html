@@ -61,7 +61,8 @@
                 <h2><i class="fa-solid fa-staff-snake"></i> Clínica ERP</h2>
             </div>
             <nav class="menu">
-                <button class="menu-btn active" data-target="dashboard"><i class="fa-solid fa-chart-line"></i> Dashboard & DRE</button>
+                <button class="menu-btn active" data-target="inicio"><i class="fa-solid fa-house"></i> Início</button>
+                <button class="menu-btn" data-target="dashboard"><i class="fa-solid fa-chart-line"></i> Dashboard & DRE</button>
                 <button class="menu-btn" data-target="agenda"><i class="fa-regular fa-calendar-days"></i> Agenda</button>
                 <button class="menu-btn" data-target="pacientes"><i class="fa-solid fa-users"></i> Pacientes & Prontuários</button>
                 <button class="menu-btn" data-target="estoque"><i class="fa-solid fa-boxes-stacked"></i> Estoque (Anvisa)</button>
@@ -95,7 +96,15 @@
 
             <div class="content-sections">
                 
-                <section id="dashboard" class="view-section active">
+                <section id="inicio" class="view-section active">
+                    <div class="section-header">
+                        <h2>Bem-vindo(a)! <span id="inicio-saudacao-nome"></span></h2>
+                    </div>
+                    <p class="top-subtitle mb-20">Escolha onde você quer trabalhar agora.</p>
+                    <div id="inicio-cards" class="card-grid"></div>
+                </section>
+
+                <section id="dashboard" class="view-section">
                     <div class="section-header">
                         <div>
                             <h2>Painel de Controle e DRE</h2>
@@ -478,6 +487,47 @@
                                 </div>
                             </div>
 
+                            <!-- MOLDE DA IMPRESSÃO DO PRONTUÁRIO (A5, RESUMO COMPACTO -
+                                 INVISÍVEL NA TELA) -->
+                            <div id="print-area-pep" class="print-only">
+                                <div class="print-header">
+                                    <div class="print-header-logo">
+                                        <i class="fa-solid fa-staff-snake"></i>
+                                    </div>
+                                    <div class="print-header-info">
+                                        <h2>GestãoPRO Clínicas</h2>
+                                        <p>Rua da Excelência Médica, 1000 - Bairro Centro, São Paulo/SP</p>
+                                    </div>
+                                </div>
+
+                                <h1 class="print-doc-title">RESUMO DE PRONTUÁRIO</h1>
+
+                                <div class="print-paciente">
+                                    <div class="print-paciente-row">
+                                        <span><strong>Paciente:</strong> <span id="print-pep-nome"></span></span>
+                                    </div>
+                                    <div class="print-paciente-row mt-5">
+                                        <span id="print-pep-dados"></span>
+                                        <span><strong>Data:</strong> <span id="print-pep-data"></span></span>
+                                    </div>
+                                    <div class="print-paciente-row mt-5">
+                                        <span><strong>Convênio:</strong> <span id="print-pep-convenio"></span></span>
+                                        <span><strong>Alergias:</strong> <span id="print-pep-alergias"></span></span>
+                                    </div>
+                                </div>
+
+                                <div class="print-body">
+                                    <div id="print-pep-conteudo"></div>
+                                </div>
+
+                                <div class="print-footer">
+                                    <div class="assinatura-bloco">
+                                        <div class="assinatura-linha"></div>
+                                        <p class="assinatura-registro" id="print-pep-assinatura"></p>
+                                    </div>
+                                </div>
+                            </div>
+
                             
                           
 
@@ -790,6 +840,7 @@
                                         <th>Procedimento</th>
                                         <th>Categoria</th>
                                         <th>Valor Base</th>
+                                        <th>Repasse</th>
                                         <th>Exceções por Profissional</th>
                                         <th>Ações</th>
                                     </tr>
@@ -1124,6 +1175,23 @@
                     </div>
                     <div class="form-group full-width"><label>Valor Base (R$) *</label><input type="text" id="proc-valor" class="input-premium" required placeholder="0,00"></div>
 
+                    <div class="form-group full-width highlight-box">
+                        <label class="flex-row gap-10" style="align-items:center; margin-bottom:6px;">
+                            <input type="checkbox" id="proc-split-ativo" style="width:auto;">
+                            Dividir esse valor entre profissional e clínica (repasse)
+                        </label>
+                        <p class="top-subtitle" style="margin: 0 0 10px;">Defina quanto desse valor fica com quem atendeu - o resto fica automaticamente com a clínica. Visível e editável só pelo Administrador.</p>
+
+                        <div id="proc-split-config" style="display:none;">
+                            <label>% que fica com o profissional</label>
+                            <input type="range" id="proc-split-percentual" min="0" max="100" step="5" value="50" style="width:100%;">
+                            <div class="flex-row gap-15 mt-10" style="justify-content: space-between;">
+                                <span class="badge success">Profissional: <strong id="proc-split-preview-prof">50% - R$ 0,00</strong></span>
+                                <span class="badge primary">Clínica: <strong id="proc-split-preview-clinica">50% - R$ 0,00</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group full-width">
                         <div class="flex-row gap-15" style="justify-content: space-between;">
                             <label style="margin-bottom:0;">Valor diferenciado por profissional (opcional)</label>
@@ -1131,7 +1199,7 @@
                                 <i class="fa-solid fa-plus"></i> Adicionar
                             </button>
                         </div>
-                        <p class="top-subtitle" style="margin: 4px 0 10px;">Use só se algum profissional cobrar diferente do valor base acima.</p>
+                        <p class="top-subtitle" style="margin: 4px 0 10px;">Use só se algum profissional cobrar diferente do valor base acima. O % de repasse configurado acima vale também sobre esse valor diferenciado.</p>
                         <div id="proc-excecoes-lista"></div>
                     </div>
 
