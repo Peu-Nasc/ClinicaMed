@@ -420,6 +420,29 @@ export function initAgenda() {
                 modalAgenda.classList.remove('active');
                 e.target.reset();
                 showToast('Consulta agendada com sucesso!', 'success');
+
+                // AUTO-RESOLUÇÃO: se esse paciente tinha um "Retorno Pendente"
+                // ou "Encaminhamento" esperando agendamento, a ação que a
+                // notificação pedia acabou de acontecer agora - resolve
+                // sozinho, sem precisar que alguém volte em Notificações pra
+                // marcar manualmente.
+                const pendenciasResolvidasAoAgendar = clinicaState.notificacoes.filter(n =>
+                    n.status === 'pendente' &&
+                    String(n.pacienteId) === String(pacId) &&
+                    (n.tipo === 'retorno_pendente' || n.tipo === 'encaminhamento')
+                );
+                for (const pend of pendenciasResolvidasAoAgendar) {
+                    try {
+                        await updateDoc(doc(db, "notificacoes", pend.id), {
+                            status: 'concluida',
+                            resolvidoPor: clinicaState.sessao.nome,
+                            resolvidoEm: new Date().toISOString(),
+                            resolvidoAutomaticamente: true
+                        });
+                    } catch (err) {
+                        console.error("Erro ao auto-resolver notificação vinculada: ", err);
+                    }
+                }
                 
                 await carregarAgendamentos(); 
             } catch (error) {

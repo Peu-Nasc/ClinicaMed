@@ -2,6 +2,7 @@ import { clinicaState } from './state.js';
 import { showToast, escapeHTML, confirmarAcao } from './Ferramentas.js';
 import { db, collection, addDoc, doc, updateDoc, query, where, onSnapshot } from './firebase.js';
 import { registrarAuditoria } from './auditoria.js';
+import { abrirProntuario } from './pacientes.js';
 
 const ICONES_TIPO = {
     retorno_pendente: 'fa-calendar-check',
@@ -52,6 +53,72 @@ async function tratarNotificacaoPagamento(n) {
     }
 }
 
+// ========================================================
+// DIRECIONAMENTO POR TIPO
+// Clicar em "Resolver" leva a pessoa direto pra onde a pendência
+// precisa ser tratada, em vez de só sumir a notificação sem contexto.
+// ========================================================
+function navegarParaContexto(n) {
+    const irPara = (target) => {
+        const btn = document.querySelector(`.menu-btn[data-target="${target}"]`);
+        if (btn) btn.click();
+    };
+
+    if ((n.tipo === 'exame_solicitado' || n.tipo === 'encaminhamento' || n.tipo === 'retorno_pendente') && n.pacienteId) {
+        irPara('pacientes');
+        // Pequeno atraso pra garantir que a troca de aba já terminou antes
+        // de tentar abrir o prontuário do paciente.
+        setTimeout(() => {
+            abrirProntuario(n.pacienteId);
+            if (n.tipo === 'exame_solicitado') {
+                document.querySelector('.tab-btn[data-tab="tab-exames"]')?.click();
+            }
+        }, 50);
+        return;
+    }
+
+    if (n.tipo === 'estoque') { irPara('estoque'); return; }
+    if (n.tipo === 'financeiro') { irPara('financeiro'); return; }
+    // 'geral' e tipos sem tela associada não navegam pra lugar nenhum -
+    // só resta o passo de confirmação abaixo.
+}
+
+// ========================================================
+// RESOLUÇÃO DE PENDÊNCIA
+// "Resolver" não é mais um clique único que já apaga a notificação:
+// primeiro leva a pessoa pro contexto certo, e só marca como concluída
+// depois de uma confirmação explícita de que a ação foi realizada.
+// Pagamento tem fluxo próprio (popup dedicado, ver tratarNotificacaoPagamento).
+// ========================================================
+async function tratarResolverNotificacao(n, btnResolver) {
+    if (n.tipo === 'pagamento_pendente') {
+        await tratarNotificacaoPagamento(n);
+        return;
+    }
+
+    navegarParaContexto(n);
+
+    const confirmou = await confirmarAcao(
+        'Você já concluiu esta pendência? A notificação só sai da lista se confirmar aqui - clicar em "Resolver" sozinho não é suficiente.',
+        { titulo: 'Confirmar resolução', textoConfirmar: 'Sim, já resolvi', perigoso: false }
+    );
+    if (!confirmou) return;
+
+    if (btnResolver) btnResolver.disabled = true;
+    try {
+        await updateDoc(doc(db, "notificacoes", n.id), {
+            status: 'concluida',
+            resolvidoPor: clinicaState.sessao.nome,
+            resolvidoEm: new Date().toISOString()
+        });
+        showToast('Pendência marcada como resolvida.', 'success');
+    } catch (error) {
+        console.error("Erro ao resolver notificação: ", error);
+        showToast('Falha ao atualizar pendência.', 'error');
+        if (btnResolver) btnResolver.disabled = false;
+    }
+}
+
 export function initNotificacoes() {
     const lista = document.getElementById('notificacoes-lista');
     if (lista) {
@@ -60,20 +127,10 @@ export function initNotificacoes() {
             if (!btnResolver) return;
 
             const id = btnResolver.getAttribute('data-id');
-            btnResolver.disabled = true;
+            const n = clinicaState.notificacoes.find(x => String(x.id) === String(id));
+            if (!n) return;
 
-            try {
-                await updateDoc(doc(db, "notificacoes", id), {
-                    status: 'concluida',
-                    resolvidoPor: clinicaState.sessao.nome,
-                    resolvidoEm: new Date().toISOString()
-                });
-                showToast('Pendência marcada como resolvida.', 'success');
-            } catch (error) {
-                console.error("Erro ao resolver notificação: ", error);
-                showToast('Falha ao atualizar pendência.', 'error');
-                btnResolver.disabled = false;
-            }
+            await tratarResolverNotificacao(n, btnResolver);
         });
     }
 
@@ -190,8 +247,8 @@ export function atualizarListaNotificacoes(filtro = 'pendentes') {
                 <span style="color: var(--text-light); font-size: 0.7rem;">Criado por ${escapeHTML(n.criadoPor || 'Sistema')} em ${dataFormatada}</span>
             </div>
             ${concluida
-                ? '<span class="badge success">Resolvido</span>'
-                : `<button class="btn-action btn-resolver-notificacao" data-id="${n.id}" title="Marcar como resolvido"><i class="fa-solid fa-check"></i> Resolver</button>`
+                ? `<span class="badge success" title="${n.resolvidoAutomaticamente ? 'Resolvida automaticamente' : 'Resolvida por ' + escapeHTML(n.resolvidoPor || '')}">${n.resolvidoAutomaticamente ? '<i class="fa-solid fa-bolt"></i> Auto' : 'Resolvido'}</span>`
+                : `<button class="btn-action btn-resolver-notificacao" data-id="${n.id}" title="Ver e resolver"><i class="fa-solid fa-arrow-right"></i> Resolver</button>`
             }
         </div>`;
     }).join('');
