@@ -1,7 +1,11 @@
 /* =========================================================
-   0. FONTE PREMIUM (INTER)
+   0. FONTES
+   - Inter: fonte de uso geral da interface
+   - Sora: fonte exclusiva da marca VITALIS (wordmark), pra dar
+     identidade própria ao nome do sistema em vez de usar a
+     mesma fonte do restante do texto
    ========================================================= */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap');
 
 /* =========================================================
    1. VARIÁVEIS E DESIGN SYSTEM (PREMIUM)
@@ -17,6 +21,7 @@
     --text-light: #6C757D;
     --border-color: #E2E8F0;
     --font-main: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-brand: 'Sora', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
     --radius-sm: 6px;
     --radius-md: 10px;
@@ -1665,6 +1670,13 @@ summary.timeline-meta:hover {
 .brand-logo i {
     font-size: 4rem;
     margin-bottom: 20px;
+}
+
+.login-brand h2,
+.logo-area h2 {
+    font-family: var(--font-brand);
+    font-weight: 700;
+    letter-spacing: 0.04em;
 }
 
 .login-brand h2 {
