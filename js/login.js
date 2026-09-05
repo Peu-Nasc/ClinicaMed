@@ -1,5 +1,14 @@
 import { showToast, comEstadoDeCarregamento } from './Ferramentas.js';
-import { auth, signInWithEmailAndPassword, onAuthStateChanged, signOut, db, collection, query, where, getDocs, addDoc, doc, getDoc } from './firebase.js';
+
+// 1. Puxa as suas conexões locais
+import { auth, db } from './firebase.js';
+
+// 2. Puxa as ferramentas de Autenticação do Google
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
+
+// 3. Puxa as ferramentas de Banco de Dados do Google
+import { collection, query, where, getDocs, addDoc, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+
 import { clinicaState } from './state.js'; // Adicione esta linha!
 import { carregarPacientes, carregarProfissionais } from './pacientes.js';
 import { carregarAgendamentos, carregarBloqueios, verificarAlertasAgendamento } from './agenda.js';
