@@ -1,38 +1,55 @@
-// Importando as funções da versão 12.16.0
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-storage.js";
-import { clinicaState } from './state.js';
+// Importações do Firebase (mantenha as versões que você já estava usando)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
+// Lê o endereço que o cliente digitou no navegador
+const host = window.location.hostname;
+let firebaseConfig;
 
-// A sua configuração real e exclusiva do banco de dados
-const firebaseConfig = {
-    apiKey: "AIzaSyD0IiMD48j88dVv2XAnRIItJjoTEITEMiw",
-    authDomain: "clinicamed-69b57.firebaseapp.com",
-    projectId: "clinicamed-69b57",
-    storageBucket: "clinicamed-69b57.firebasestorage.app",
-    messagingSenderId: "887597358188",
-    appId: "1:887597358188:web:80602df42ef4039fb90c49"
-};
+// ROTEAMENTO DE BANCO DE DADOS POR SUBDOMÍNIO
+if (host === 'elisangela.sistemavitalis.com.br') {
+    
+    // 1. Banco de Dados: Clínica Elisangela (TEA)
+    const firebaseConfig = {
+    apiKey: "AIzaSyAUL4a9jX__kx2dR-dZioalQxM7QxZPSl0",
+    authDomain: "vitalis---elisangela.firebaseapp.com",
+    projectId: "vitalis---elisangela",
+    storageBucket: "vitalis---elisangela.firebasestorage.app",
+    messagingSenderId: "527275326414",
+    appId: "1:527275326414:web:d9bc13089c42f5d783499f"
+  };
 
-// Inicializando os serviços
+} else if (host === 'daniel.sistemavitalis.com.br') {
+    
+    // 2. Banco de Dados: Clínica Dr. Daniel
+    const firebaseConfig = {
+    apiKey: "AIzaSyCF_cc8t8cqB1iYjKku1r7pzIJa5d0029U",
+    authDomain: "vitalis---daniel.firebaseapp.com",
+    projectId: "vitalis---daniel",
+    storageBucket: "vitalis---daniel.firebasestorage.app",
+    messagingSenderId: "266266312840",
+    appId: "1:266266312840:web:0e0ce38a1c597898009f3d"
+  };
+
+} else {
+    
+    // 3. AMBIENTE DE DESENVOLVIMENTO (VSCode / Localhost / Domínio Raiz)
+    // Se você estiver testando no seu computador (127.0.0.1 ou localhost), 
+    // ou se alguém acessar apenas sistemavitalis.com.br, ele cai aqui.
+    // Dica: Coloque aqui as chaves de um projeto de testes seu.
+    firebaseConfig = {
+        apiKey: "SUA_API_KEY_DE_TESTE",
+        authDomain: "vitalis-teste.firebaseapp.com",
+        projectId: "vitalis-teste",
+        // ...
+    };
+}
+
+// Inicializa o Firebase com a chave correta escolhida acima
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-// PERSISTÊNCIA POR ABA: por padrão o Firebase guarda a sessão no localStorage,
-// que é compartilhado entre todas as abas do navegador - por isso logar como
-// outro perfil numa aba nova trocava o usuário logado em todas as outras.
-// Com sessionStorage, cada aba tem sua própria sessão, independente das demais.
-// Efeito colateral: ao fechar a aba, a sessão se perde (precisa logar de novo
-// na próxima vez que abrir o sistema), diferente do comportamento anterior.
-setPersistence(auth, browserSessionPersistence).catch((error) => {
-    console.error("Erro ao configurar persistência de sessão: ", error);
-});
-
-// Exportando os métodos que a tela de login e as tabelas vão usar
-export { signInWithEmailAndPassword, signOut, onAuthStateChanged };
-export { collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc, deleteDoc, onSnapshot };
-export { ref, uploadBytes, getDownloadURL, deleteObject };
+// Exporta para o resto do sistema usar (login.js, agenda.js, etc.)
+export { app, db, auth };
