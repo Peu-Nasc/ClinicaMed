@@ -65,23 +65,57 @@ function navegarParaContexto(n) {
         if (btn) btn.click();
     };
 
-    if ((n.tipo === 'exame_solicitado' || n.tipo === 'encaminhamento' || n.tipo === 'retorno_pendente') && n.pacienteId) {
-        irPara('pacientes');
-        // Pequeno atraso pra garantir que a troca de aba já terminou antes
-        // de tentar abrir o prontuário do paciente.
+    if (n.tipo === 'exame_solicitado' || n.tipo === 'encaminhamento' || n.tipo === 'retorno_pendente') {
+        irPara('agenda'); 
         setTimeout(() => {
-            abrirProntuario(n.pacienteId);
-            if (n.tipo === 'exame_solicitado') {
-                document.querySelector('.tab-btn[data-tab="tab-exames"]')?.click();
-            }
+            // Clica automaticamente no botão de agendar para facilitar para a recepção
+            document.getElementById('btn-novo-agendamento')?.click();
+            
+            setTimeout(() => {
+                const selPac = document.getElementById('agenda-paciente');
+                if (selPac && n.pacienteId) selPac.value = n.pacienteId;
+                showToast(`Selecione o horário para ${n.pacienteNome}.`, 'info');
+            }, 100);
         }, 50);
         return;
     }
 
     if (n.tipo === 'estoque') { irPara('estoque'); return; }
     if (n.tipo === 'financeiro') { irPara('financeiro'); return; }
-    // 'geral' e tipos sem tela associada não navegam pra lugar nenhum -
-    // só resta o passo de confirmação abaixo.
+}
+
+// ========================================================
+// GERADOR DE ALERTAS LOCAIS (Economiza o Firebase)
+// ========================================================
+function gerarAlertasLocais() {
+    const alertas = [];
+    const hojeData = new Date();
+    
+    clinicaState.estoque.forEach(item => {
+        if (item.qtd <= item.min) {
+            alertas.push({ tipo: 'estoque', titulo: 'Estoque Baixo', mensagem: `${item.nome} atingiu o mínimo!`, criadoPor: 'Sistema', status: 'pendente', local: true });
+        }
+        const diasVenc = Math.floor((new Date(item.validade) - hojeData) / (1000 * 60 * 60 * 24));
+        if (diasVenc <= 30 && diasVenc >= 0) {
+            alertas.push({ tipo: 'estoque', titulo: 'Vencimento Próximo', mensagem: `Lote ${item.lote} de ${item.nome} vence em ${diasVenc} dias!`, criadoPor: 'Sistema', status: 'pendente', local: true });
+        } else if (diasVenc < 0) {
+            alertas.push({ tipo: 'estoque', titulo: 'Item Vencido', mensagem: `Lote ${item.lote} de ${item.nome} está vencido!`, criadoPor: 'Sistema', status: 'pendente', local: true });
+        }
+    });
+
+    const getIsoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const hojeIso = getIsoDate(hojeData);
+    const amanhaObj = new Date();
+    amanhaObj.setDate(amanhaObj.getDate() + 1);
+    const amanhaIso = getIsoDate(amanhaObj);
+
+    const consultasHoje = clinicaState.agenda.agendamentos.filter(a => a.data === hojeIso && a.status !== 'cancelado');
+    const consultasAmanha = clinicaState.agenda.agendamentos.filter(a => a.data === amanhaIso && a.status !== 'cancelado');
+
+    if (consultasHoje.length > 0) alertas.push({ tipo: 'geral', titulo: 'Consultas Hoje', mensagem: `Você tem ${consultasHoje.length} consulta(s) para hoje.`, criadoPor: 'Sistema', status: 'pendente', local: true });
+    if (consultasAmanha.length > 0) alertas.push({ tipo: 'geral', titulo: 'Consultas Amanhã', mensagem: `Você tem ${consultasAmanha.length} consulta(s) para amanhã.`, criadoPor: 'Sistema', status: 'pendente', local: true });
+    
+    return alertas;
 }
 
 // ========================================================
@@ -215,7 +249,9 @@ function atualizarBadgeNotificacoes() {
     const badge = document.getElementById('badge-notificacoes');
     if (!badge) return;
 
-    const pendentes = clinicaState.notificacoes.filter(n => n.status === 'pendente').length;
+    let pendentes = clinicaState.notificacoes.filter(n => n.status === 'pendente').length;
+    pendentes += gerarAlertasLocais().length; // Soma os alertas grátis na bolinha vermelha
+
     badge.textContent = pendentes;
     badge.style.display = pendentes > 0 ? 'inline-flex' : 'none';
 }
@@ -225,6 +261,12 @@ export function atualizarListaNotificacoes(filtro = 'pendentes') {
     if (!lista) return;
 
     let itens = clinicaState.notificacoes.slice();
+    
+    // Mistura as notificações do banco com as grátis do sistema
+    if (filtro === 'pendentes' || filtro === 'todas') {
+        itens = itens.concat(gerarAlertasLocais());
+    }
+
     if (filtro === 'pendentes') itens = itens.filter(n => n.status === 'pendente');
     else if (filtro === 'concluidas') itens = itens.filter(n => n.status === 'concluida');
 
@@ -237,20 +279,24 @@ export function atualizarListaNotificacoes(filtro = 'pendentes') {
 
     lista.innerHTML = itens.map(n => {
         const icone = ICONES_TIPO[n.tipo] || ICONES_TIPO.geral;
-        const dataFormatada = n.criadoEm ? new Date(n.criadoEm).toLocaleString('pt-BR') : '';
+        const dataFormatada = n.criadoEm ? new Date(n.criadoEm).toLocaleString('pt-BR') : 'Agora';
         const concluida = n.status === 'concluida';
 
+        // Os alertas locais ganham um botão informativo, sem precisar clicar em resolver
+        const botaoAcao = n.local 
+            ? `<span class="badge info" title="Aviso Automático"><i class="fa-solid fa-robot"></i> Alerta de Sistema</span>`
+            : (concluida
+                ? `<span class="badge success" title="${n.resolvidoAutomaticamente ? 'Resolvida automaticamente' : 'Resolvida por ' + escapeHTML(n.resolvidoPor || '')}">${n.resolvidoAutomaticamente ? '<i class="fa-solid fa-bolt"></i> Auto' : 'Resolvido'}</span>`
+                : `<button class="btn-action btn-resolver-notificacao" data-id="${n.id}" title="Ver e resolver"><i class="fa-solid fa-arrow-right"></i> Resolver</button>`);
+
         return `
-        <div class="dash-list-item ${concluida ? '' : 'warning'}" style="align-items: flex-start;">
+        <div class="dash-list-item ${concluida ? '' : (n.local ? 'danger' : 'warning')}" style="align-items: flex-start;">
             <div>
                 <strong><i class="fa-solid ${icone}"></i> ${escapeHTML(n.titulo)}</strong><br>
                 <span style="color: var(--text-light); font-size: 0.85rem;">${escapeHTML(n.mensagem)}</span><br>
                 <span style="color: var(--text-light); font-size: 0.7rem;">Criado por ${escapeHTML(n.criadoPor || 'Sistema')} em ${dataFormatada}</span>
             </div>
-            ${concluida
-                ? `<span class="badge success" title="${n.resolvidoAutomaticamente ? 'Resolvida automaticamente' : 'Resolvida por ' + escapeHTML(n.resolvidoPor || '')}">${n.resolvidoAutomaticamente ? '<i class="fa-solid fa-bolt"></i> Auto' : 'Resolvido'}</span>`
-                : `<button class="btn-action btn-resolver-notificacao" data-id="${n.id}" title="Ver e resolver"><i class="fa-solid fa-arrow-right"></i> Resolver</button>`
-            }
+            ${botaoAcao}
         </div>`;
     }).join('');
 }

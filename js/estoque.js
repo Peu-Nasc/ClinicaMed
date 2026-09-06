@@ -78,14 +78,7 @@ export function initEstoque() {
 }
 
 export function verificarAlertasEstoque() {
-    const hoje = new Date();
-    clinicaState.estoque.forEach(item => {
-        if (item.qtd <= item.min) showToast(`Alerta: ${item.nome} atingiu o estoque mínimo!`, 'warning');
-        
-        const diasVenc = Math.floor((new Date(item.validade) - hoje) / (1000 * 60 * 60 * 24));
-        if (diasVenc <= 30 && diasVenc >= 0) showToast(`Lote ${item.lote} de ${item.nome} vence em ${diasVenc} dias!`, 'error');
-        else if (diasVenc < 0) showToast(`Item Vencido: Lote ${item.lote} de ${item.nome}!`, 'error');
-    });
+    // Função silenciada: os alertas agora aparecem silenciosamente no Dashboard
 }
 
 export function atualizarTabelaEstoque(filtro = '', categoria = 'todas') {
