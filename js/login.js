@@ -4,8 +4,8 @@ import { showToast, comEstadoDeCarregamento } from './Ferramentas.js';
 import { auth, db } from './firebase.js';
 
 // 2. Puxa as ferramentas de Autenticação do Google
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
-
+// 2. Puxa as ferramentas de Autenticação do Google
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js';
 // 3. Puxa as ferramentas de Banco de Dados do Google
 import { collection, query, where, getDocs, addDoc, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 
@@ -156,7 +156,10 @@ export function initAuth() {
 
         await comEstadoDeCarregamento(btn, 'Autenticando...', async () => {
             try {
-                // 1. Envia as credenciais para o Firebase
+                // 1. Avisa o Firebase que a sessão morre se a aba for fechada
+                await setPersistence(auth, browserSessionPersistence);
+
+                // 2. Envia as credenciais para o Firebase
                 const userCredential = await signInWithEmailAndPassword(auth, email, senha);
                 const user = userCredential.user;
 
