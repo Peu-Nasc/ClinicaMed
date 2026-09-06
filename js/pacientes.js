@@ -3,7 +3,9 @@ import { showToast, escapeHTML, encriptar, decriptar, comEstadoDeCarregamento, c
 import { atualizarAgenda } from './agenda.js';
 import { criarNotificacao } from './notificacoes.js';
 
-import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, storage, ref, uploadBytes, getDownloadURL, deleteObject } from './firebase.js';
+import { db, storage } from './firebase.js';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js';
 import { registrarAuditoria } from './auditoria.js';
 
 let pacienteAtivoId = null;

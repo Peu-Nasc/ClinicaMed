@@ -1,6 +1,7 @@
 import { clinicaState } from './state.js';
 import { formatCurrency, showToast, renderCardGrid, comEstadoDeCarregamento, escapeHTML, confirmarAcao } from './Ferramentas.js';
-import { db, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from './firebase.js';
+import { db } from './firebase.js';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { registrarAuditoria } from './auditoria.js';
 
 let lancamentoEmEdicaoId = null;

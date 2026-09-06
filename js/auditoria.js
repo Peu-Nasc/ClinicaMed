@@ -1,6 +1,12 @@
 import { clinicaState } from './state.js';
 import { showToast, renderCardGrid, escapeHTML } from './Ferramentas.js';
-import { db, collection, addDoc, getDocs, query, where } from './firebase.js';
+
+// 1. Puxa APENAS a sua conexão do arquivo local
+import { db } from './firebase.js';
+
+// 2. Puxa as ferramentas de ação do link oficial do Firebase
+import { collection, addDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
+
 
 // ========================================================
 // AUDITORIA / ASSINATURA DIGITAL

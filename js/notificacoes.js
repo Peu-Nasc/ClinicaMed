@@ -1,6 +1,7 @@
 import { clinicaState } from './state.js';
 import { showToast, escapeHTML, confirmarAcao } from './Ferramentas.js';
-import { db, collection, addDoc, doc, updateDoc, query, where, onSnapshot } from './firebase.js';
+import { db } from './firebase.js';
+import { collection, addDoc, doc, updateDoc, query, where, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js';
 import { registrarAuditoria } from './auditoria.js';
 import { abrirProntuario } from './pacientes.js';
 
