@@ -54,7 +54,7 @@ if (host === 'elisangela.sistemavitalis.com.br') {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const storage = getStorage(app);
+const storage = getStorage(app); // <- Adicione esta linha!
 
-// Exporta para o resto do sistema usar (login.js, agenda.js, etc.)
-export { app, db, auth };
+// Exporte o storage também!
+export { app, db, auth, storage };
