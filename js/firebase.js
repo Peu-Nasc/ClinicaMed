@@ -56,5 +56,5 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 
-// Exporta para o resto do sistema usar
-export { app, db, auth, storage };
+// Exporta para o resto do sistema usar (login.js, agenda.js, etc.)
+export { app, db, auth };
